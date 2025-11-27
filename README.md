@@ -40,8 +40,23 @@
 ## 📖 문서
 
 - [제품 요구사항 문서 (PRD)](docs/PRD.md) - 상세 기능 명세 및 API 설계
+- [NuGet 배포 가이드](docs/NUGET.md) - 패키지 설치 및 배포 가이드
+- [페이지별 기능 명세](docs/PAGES.md) - 4페이지 구성 및 테스트 케이스
+- [테스트 가이드](docs/TESTING.md) - 테스트 웹서비스 사용 가이드
 
 ## 🚀 시작하기
+
+### NuGet 패키지 설치
+
+```bash
+# .NET CLI
+dotnet add package BoardCommonLibrary --version 1.0.0
+
+# 또는 패키지 관리자
+Install-Package BoardCommonLibrary -Version 1.0.0
+```
+
+### 저장소 클론 및 빌드
 
 ```bash
 # 저장소 클론
@@ -49,9 +64,33 @@ git clone https://github.com/bluek1/board-common-library.git
 
 # 프로젝트 디렉토리로 이동
 cd board-common-library
-
-# (개발 환경 설정 및 빌드 명령어는 프로젝트 구현 후 추가 예정)
 ```
+
+### 테스트 웹서비스 실행
+
+```bash
+# 테스트 웹서비스 디렉토리로 이동
+cd test-web/BoardTestWeb
+
+# 의존성 복원 및 실행
+dotnet restore
+dotnet run
+
+# 웹 브라우저에서 http://localhost:5000 접속
+```
+
+## 📊 페이지 구성
+
+본 라이브러리는 4개의 페이지로 기능이 구성되어 있습니다:
+
+| 페이지 | 기능 | 테스트 수 |
+|-------|------|----------|
+| **페이지 1** | 게시물 관리 (CRUD, 조회수, 상단고정, 임시저장) | 15개 |
+| **페이지 2** | 댓글/대댓글, 좋아요, 북마크 | 15개 |
+| **페이지 3** | 파일 업로드, 썸네일, 검색 | 15개 |
+| **페이지 4** | 관리자 기능, Q&A 게시판 | 15개 |
+
+각 페이지별 상세 기능과 테스트 케이스는 [페이지별 기능 명세](docs/PAGES.md)를 참조하세요.
 
 ## 📄 라이선스
 
