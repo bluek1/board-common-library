@@ -12,6 +12,17 @@ public class TestExecutionService
     private readonly List<TestResult> _testResults;
     private readonly object _lock = new();
 
+    /// <summary>
+    /// 페이지 제목 상수
+    /// </summary>
+    private static readonly Dictionary<int, string> PageTitles = new()
+    {
+        { 1, "게시물 관리" },
+        { 2, "댓글/좋아요" },
+        { 3, "파일/검색" },
+        { 4, "관리자/Q&A" }
+    };
+
     public TestExecutionService()
     {
         _testCases = InitializeTestCases();
@@ -103,13 +114,6 @@ public class TestExecutionService
         lock (_lock)
         {
             var pageSummaries = new List<PageTestSummary>();
-            var pageTitles = new Dictionary<int, string>
-            {
-                { 1, "게시물 관리" },
-                { 2, "댓글/좋아요" },
-                { 3, "파일/검색" },
-                { 4, "관리자/Q&A" }
-            };
 
             for (int page = 1; page <= 4; page++)
             {
@@ -119,7 +123,7 @@ public class TestExecutionService
                 pageSummaries.Add(new PageTestSummary
                 {
                     PageNumber = page,
-                    PageTitle = pageTitles[page],
+                    PageTitle = PageTitles[page],
                     TotalTests = pageTests.Count,
                     PassedTests = pageResults.Count(r => r.Passed),
                     FailedTests = pageResults.Count(r => !r.Passed),
@@ -146,21 +150,13 @@ public class TestExecutionService
     {
         lock (_lock)
         {
-            var pageTitles = new Dictionary<int, string>
-            {
-                { 1, "게시물 관리" },
-                { 2, "댓글/좋아요" },
-                { 3, "파일/검색" },
-                { 4, "관리자/Q&A" }
-            };
-
             var pageTests = _testCases.Where(t => t.PageNumber == pageNumber).ToList();
             var pageResults = _testResults.Where(r => r.PageNumber == pageNumber).ToList();
 
             return new PageTestSummary
             {
                 PageNumber = pageNumber,
-                PageTitle = pageTitles.GetValueOrDefault(pageNumber, "알 수 없음"),
+                PageTitle = PageTitles.GetValueOrDefault(pageNumber, "알 수 없음"),
                 TotalTests = pageTests.Count,
                 PassedTests = pageResults.Count(r => r.Passed),
                 FailedTests = pageResults.Count(r => !r.Passed),
@@ -212,6 +208,8 @@ public class TestExecutionService
 
     /// <summary>
     /// 단일 테스트 실행
+    /// 참고: 현재는 시뮬레이션 모드로 동작합니다.
+    /// 실제 라이브러리 구현 후 실제 테스트 로직으로 교체해야 합니다.
     /// </summary>
     private async Task<TestResult> RunSingleTestAsync(TestCase testCase)
     {
@@ -221,16 +219,18 @@ public class TestExecutionService
 
         try
         {
-            // 실제 테스트 로직은 라이브러리 구현 후 추가
-            // 현재는 시뮬레이션
+            // TODO: 실제 테스트 로직은 BoardCommonLibrary 구현 후 추가
+            // 현재는 시뮬레이션 모드로 동작 (개발/데모 목적)
+            // 시뮬레이션 딜레이 (10-100ms)
             await Task.Delay(Random.Shared.Next(10, 100));
             
-            // 임시: 랜덤하게 성공/실패 (실제 구현 시 교체)
-            passed = Random.Shared.Next(0, 10) > 2; // 80% 성공률 시뮬레이션
+            // 시뮬레이션: 약 80% 성공률로 랜덤 결과 생성
+            // 실제 구현 시 이 부분을 실제 API 호출 및 검증 로직으로 교체
+            passed = Random.Shared.Next(0, 10) > 2;
             
             if (!passed)
             {
-                errorMessage = "테스트가 예상 결과와 일치하지 않습니다. (시뮬레이션)";
+                errorMessage = "테스트가 예상 결과와 일치하지 않습니다. (시뮬레이션 모드)";
             }
         }
         catch (Exception ex)

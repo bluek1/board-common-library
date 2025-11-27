@@ -9,8 +9,10 @@ namespace BoardTestWeb.Controllers;
 [Route("api/page3")]
 public class TestPage3Controller : ControllerBase
 {
-    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
-    private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx" };
+    // TODO: 프로덕션에서는 IConfiguration을 통해 appsettings.json에서 설정 값을 읽도록 변경
+    // 현재는 테스트 목적으로 하드코딩된 값 사용
+    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB (appsettings.json의 BoardLibrary:FileUpload:MaxFileSize와 동일)
+    private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx" }; // appsettings.json의 BoardLibrary:FileUpload:AllowedExtensions와 동일
 
     /// <summary>
     /// 파일 업로드 테스트
