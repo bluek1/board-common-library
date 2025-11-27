@@ -1,3 +1,4 @@
+using BoardCommonLibrary.Extensions;
 using BoardTestWeb.Services;
 using Microsoft.OpenApi.Models;
 
@@ -16,6 +17,9 @@ builder.Services.AddSwaggerGen(c =>
         Description = "게시판 공통 라이브러리 테스트용 웹서비스"
     });
 });
+
+// 게시판 라이브러리 서비스 등록 (InMemory DB 사용)
+builder.Services.AddBoardLibraryInMemory("BoardTestDb");
 
 // 테스트 서비스 등록
 builder.Services.AddSingleton<TestExecutionService>();
