@@ -1,0 +1,253 @@
+@page "/page1"
+@model BoardTestWeb.Pages.Page1.IndexModel
+@{
+    ViewData["Title"] = "페이지 1: 게시물 관리 테스트";
+}
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">📋 게시판 라이브러리 테스트</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">대시보드</a>
+                <a class="nav-link active" href="/page1">페이지 1</a>
+                <a class="nav-link" href="/page2">페이지 2</a>
+                <a class="nav-link" href="/page3">페이지 3</a>
+                <a class="nav-link" href="/page4">페이지 4</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1>📝 페이지 1: 게시물 관리 테스트</h1>
+        <p class="lead">게시물 CRUD, 조회수 관리, 상단고정, 임시저장 기능을 테스트합니다.</p>
+
+        <div class="row">
+            <!-- 테스트 실행 패널 -->
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">테스트 케이스</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary w-100 mb-3" onclick="runPageTests()">
+                            ▶ 전체 테스트 실행
+                        </button>
+                        <div id="testCases">
+                            <!-- 테스트 케이스 목록 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API 테스트 패널 -->
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">API 테스트</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="apiTabs" role="tablist">
+                            <li class="nav-item">
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#createPost">작성</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#listPosts">목록</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewPost">조회</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pinPost">상단고정</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#draftPost">임시저장</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content p-3 border border-top-0">
+                            <!-- 게시물 작성 -->
+                            <div class="tab-pane fade show active" id="createPost">
+                                <h6>게시물 작성</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">제목</label>
+                                    <input type="text" class="form-control" id="postTitle" placeholder="게시물 제목">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">내용</label>
+                                    <textarea class="form-control" id="postContent" rows="3" placeholder="게시물 내용"></textarea>
+                                </div>
+                                <button class="btn btn-primary" onclick="createPost()">작성하기</button>
+                            </div>
+
+                            <!-- 게시물 목록 -->
+                            <div class="tab-pane fade" id="listPosts">
+                                <h6>게시물 목록 조회</h6>
+                                <div class="row mb-3">
+                                    <div class="col">
+                                        <label class="form-label">페이지</label>
+                                        <input type="number" class="form-control" id="listPage" value="1" min="1">
+                                    </div>
+                                    <div class="col">
+                                        <label class="form-label">페이지 크기</label>
+                                        <input type="number" class="form-control" id="listPageSize" value="10" min="1" max="100">
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" onclick="listPosts()">조회하기</button>
+                            </div>
+
+                            <!-- 게시물 조회 -->
+                            <div class="tab-pane fade" id="viewPost">
+                                <h6>게시물 상세 조회</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">게시물 ID</label>
+                                    <input type="number" class="form-control" id="viewPostId" value="1" min="1">
+                                </div>
+                                <button class="btn btn-primary" onclick="viewPost()">조회하기</button>
+                            </div>
+
+                            <!-- 상단고정 -->
+                            <div class="tab-pane fade" id="pinPost">
+                                <h6>상단고정 설정/해제</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">게시물 ID</label>
+                                    <input type="number" class="form-control" id="pinPostId" value="1" min="1">
+                                </div>
+                                <button class="btn btn-success me-2" onclick="pinPost()">상단고정</button>
+                                <button class="btn btn-secondary" onclick="unpinPost()">고정해제</button>
+                            </div>
+
+                            <!-- 임시저장 -->
+                            <div class="tab-pane fade" id="draftPost">
+                                <h6>임시저장</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">제목</label>
+                                    <input type="text" class="form-control" id="draftTitle" placeholder="임시저장 제목">
+                                </div>
+                                <button class="btn btn-warning me-2" onclick="saveDraft()">임시저장</button>
+                                <button class="btn btn-outline-primary" onclick="loadDrafts()">목록보기</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 결과 표시 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">결과</h5>
+                    </div>
+                    <div class="card-body">
+                        <pre id="apiResult" class="bg-light p-3" style="max-height: 400px; overflow-y: auto;">결과가 여기에 표시됩니다.</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api/page1';
+
+        function showResult(data) {
+            document.getElementById('apiResult').textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function createPost() {
+            const title = document.getElementById('postTitle').value;
+            const content = document.getElementById('postContent').value;
+            
+            const response = await fetch(`${API_BASE}/posts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function listPosts() {
+            const page = document.getElementById('listPage').value;
+            const pageSize = document.getElementById('listPageSize').value;
+            
+            const response = await fetch(`${API_BASE}/posts?page=${page}&pageSize=${pageSize}`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function viewPost() {
+            const id = document.getElementById('viewPostId').value;
+            
+            const response = await fetch(`${API_BASE}/posts/${id}`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function pinPost() {
+            const id = document.getElementById('pinPostId').value;
+            
+            const response = await fetch(`${API_BASE}/posts/${id}/pin`, { method: 'POST' });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function unpinPost() {
+            const id = document.getElementById('pinPostId').value;
+            
+            const response = await fetch(`${API_BASE}/posts/${id}/pin`, { method: 'DELETE' });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function saveDraft() {
+            const title = document.getElementById('draftTitle').value;
+            
+            const response = await fetch(`${API_BASE}/posts/draft`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content: '임시저장 내용' })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function loadDrafts() {
+            const response = await fetch(`${API_BASE}/posts/draft`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function runPageTests() {
+            const response = await fetch('/api/test/run/1', { method: 'POST' });
+            const data = await response.json();
+            showResult(data);
+            loadTestCases();
+        }
+
+        async function loadTestCases() {
+            const response = await fetch('/api/test/cases?pageNumber=1');
+            const cases = await response.json();
+            
+            const statusResponse = await fetch('/api/test/page/1');
+            const status = await statusResponse.json();
+            
+            const html = cases.map(tc => {
+                const result = status.testResults.find(r => r.testId === tc.testId);
+                const statusClass = result ? (result.passed ? 'text-success' : 'text-danger') : 'text-secondary';
+                const statusIcon = result ? (result.passed ? '✅' : '❌') : '⏳';
+                return `<div class="mb-2 ${statusClass}"><small>${statusIcon} ${tc.testId}: ${tc.testName}</small></div>`;
+            }).join('');
+            
+            document.getElementById('testCases').innerHTML = html;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTestCases);
+    </script>
+</body>
+</html>

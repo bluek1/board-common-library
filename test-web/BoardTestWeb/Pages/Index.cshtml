@@ -1,0 +1,318 @@
+@page
+@model BoardTestWeb.Pages.IndexModel
+@{
+    ViewData["Title"] = "게시판 라이브러리 테스트 대시보드";
+}
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .progress-card {
+            transition: transform 0.2s;
+        }
+        .progress-card:hover {
+            transform: translateY(-5px);
+        }
+        .status-badge {
+            font-size: 0.75rem;
+        }
+        .test-item {
+            border-left: 3px solid #dee2e6;
+            padding-left: 15px;
+            margin-bottom: 10px;
+        }
+        .test-item.passed {
+            border-left-color: #198754;
+        }
+        .test-item.failed {
+            border-left-color: #dc3545;
+        }
+        .test-item.pending {
+            border-left-color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">📋 게시판 라이브러리 테스트</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/swagger">Swagger API</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h4 class="card-title">📊 전체 테스트 진행 현황</h4>
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="progress" style="height: 30px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 0%;" id="overallProgress">
+                                        0%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-primary" onclick="runAllTests()">
+                                    ▶ 전체 테스트 실행
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <small class="text-muted">전체 테스트: <span id="totalTests">60</span>개</small>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-success">통과: <span id="passedTests">0</span>개</small>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-danger">실패: <span id="failedTests">0</span>개</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 페이지 1: 게시물 관리 -->
+            <div class="col-md-6 col-lg-3 mb-4">
+                <div class="card progress-card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">📝 페이지 1</h5>
+                        <small>게시물 관리</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress mb-3" style="height: 20px;">
+                            <div class="progress-bar" role="progressbar" style="width: 0%;" id="page1Progress">0%</div>
+                        </div>
+                        <p class="card-text small">
+                            <strong>주요 기능:</strong><br>
+                            • 게시물 CRUD<br>
+                            • 조회수 관리<br>
+                            • 상단고정<br>
+                            • 임시저장
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-secondary" id="page1Status">15개 테스트</span>
+                            <button class="btn btn-sm btn-outline-primary" onclick="runPageTests(1)">테스트 실행</button>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/page1" class="btn btn-primary w-100">상세 보기 →</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 페이지 2: 댓글/좋아요 -->
+            <div class="col-md-6 col-lg-3 mb-4">
+                <div class="card progress-card h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">💬 페이지 2</h5>
+                        <small>댓글/좋아요</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress mb-3" style="height: 20px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 0%;" id="page2Progress">0%</div>
+                        </div>
+                        <p class="card-text small">
+                            <strong>주요 기능:</strong><br>
+                            • 댓글/대댓글<br>
+                            • 좋아요<br>
+                            • 북마크<br>
+                            • 통계 동기화
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-secondary" id="page2Status">15개 테스트</span>
+                            <button class="btn btn-sm btn-outline-success" onclick="runPageTests(2)">테스트 실행</button>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/page2" class="btn btn-success w-100">상세 보기 →</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 페이지 3: 파일/검색 -->
+            <div class="col-md-6 col-lg-3 mb-4">
+                <div class="card progress-card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">📁 페이지 3</h5>
+                        <small>파일/검색</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress mb-3" style="height: 20px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: 0%;" id="page3Progress">0%</div>
+                        </div>
+                        <p class="card-text small">
+                            <strong>주요 기능:</strong><br>
+                            • 파일 업로드<br>
+                            • 썸네일 생성<br>
+                            • 키워드 검색<br>
+                            • 태그 검색
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-secondary" id="page3Status">15개 테스트</span>
+                            <button class="btn btn-sm btn-outline-info" onclick="runPageTests(3)">테스트 실행</button>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/page3" class="btn btn-info w-100">상세 보기 →</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 페이지 4: 관리자/Q&A -->
+            <div class="col-md-6 col-lg-3 mb-4">
+                <div class="card progress-card h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">⚙️ 페이지 4</h5>
+                        <small>관리자/Q&A</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress mb-3" style="height: 20px;">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: 0%;" id="page4Progress">0%</div>
+                        </div>
+                        <p class="card-text small">
+                            <strong>주요 기능:</strong><br>
+                            • 콘텐츠 관리<br>
+                            • 신고 처리<br>
+                            • Q&A 질문/답변<br>
+                            • 통계
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-secondary" id="page4Status">15개 테스트</span>
+                            <button class="btn btn-sm btn-outline-warning" onclick="runPageTests(4)">테스트 실행</button>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/page4" class="btn btn-warning w-100">상세 보기 →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 최근 테스트 결과 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">🔍 최근 테스트 결과</h5>
+                    </div>
+                    <div class="card-body" id="recentResults">
+                        <p class="text-muted text-center">테스트를 실행하면 결과가 여기에 표시됩니다.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-5 py-3 bg-light">
+        <div class="container text-center">
+            <small class="text-muted">게시판 공통 라이브러리 테스트 웹서비스 v1.0</small>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 테스트 상태 로드
+        async function loadTestStatus() {
+            try {
+                const response = await fetch('/api/test/status');
+                const status = await response.json();
+                updateDashboard(status);
+            } catch (error) {
+                console.error('테스트 상태 로드 실패:', error);
+            }
+        }
+
+        // 대시보드 업데이트
+        function updateDashboard(status) {
+            document.getElementById('totalTests').textContent = status.totalTests;
+            document.getElementById('passedTests').textContent = status.passedTests;
+            document.getElementById('failedTests').textContent = status.failedTests;
+            
+            const overallRate = status.overallCompletionRate.toFixed(1);
+            const overallProgress = document.getElementById('overallProgress');
+            overallProgress.style.width = overallRate + '%';
+            overallProgress.textContent = overallRate + '%';
+
+            status.pageSummaries.forEach((page, index) => {
+                const pageNum = index + 1;
+                const rate = page.completionRate.toFixed(1);
+                const progress = document.getElementById(`page${pageNum}Progress`);
+                if (progress) {
+                    progress.style.width = rate + '%';
+                    progress.textContent = rate + '%';
+                }
+                const statusBadge = document.getElementById(`page${pageNum}Status`);
+                if (statusBadge) {
+                    statusBadge.textContent = `${page.passedTests}/${page.totalTests} 통과`;
+                    statusBadge.className = page.passedTests === page.totalTests ? 'badge bg-success' : 'badge bg-secondary';
+                }
+            });
+        }
+
+        // 페이지별 테스트 실행
+        async function runPageTests(pageNumber) {
+            try {
+                const response = await fetch(`/api/test/run/${pageNumber}`, { method: 'POST' });
+                const results = await response.json();
+                displayResults(results);
+                loadTestStatus();
+            } catch (error) {
+                console.error('테스트 실행 실패:', error);
+            }
+        }
+
+        // 전체 테스트 실행
+        async function runAllTests() {
+            try {
+                const response = await fetch('/api/test/run/all', { method: 'POST' });
+                const status = await response.json();
+                updateDashboard(status);
+                
+                // 모든 결과 표시
+                const allResults = status.pageSummaries.flatMap(p => p.testResults);
+                displayResults(allResults);
+            } catch (error) {
+                console.error('전체 테스트 실행 실패:', error);
+            }
+        }
+
+        // 결과 표시
+        function displayResults(results) {
+            const container = document.getElementById('recentResults');
+            if (results.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">테스트 결과가 없습니다.</p>';
+                return;
+            }
+
+            const html = results.slice(0, 10).map(r => `
+                <div class="test-item ${r.passed ? 'passed' : 'failed'}">
+                    <div class="d-flex justify-content-between">
+                        <strong>${r.testId}: ${r.testName}</strong>
+                        <span class="badge ${r.passed ? 'bg-success' : 'bg-danger'}">${r.passed ? '통과' : '실패'}</span>
+                    </div>
+                    <small class="text-muted">${r.details || ''}</small>
+                    ${r.errorMessage ? `<br><small class="text-danger">${r.errorMessage}</small>` : ''}
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        // 페이지 로드 시 상태 로드
+        document.addEventListener('DOMContentLoaded', loadTestStatus);
+    </script>
+</body>
+</html>

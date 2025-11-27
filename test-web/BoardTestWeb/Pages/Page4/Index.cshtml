@@ -1,0 +1,374 @@
+@page "/page4"
+@model BoardTestWeb.Pages.Page4.IndexModel
+@{
+    ViewData["Title"] = "페이지 4: 관리자/Q&A 테스트";
+}
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-warning">
+        <div class="container">
+            <a class="navbar-brand text-dark" href="/">📋 게시판 라이브러리 테스트</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link text-dark" href="/">대시보드</a>
+                <a class="nav-link text-dark" href="/page1">페이지 1</a>
+                <a class="nav-link text-dark" href="/page2">페이지 2</a>
+                <a class="nav-link text-dark" href="/page3">페이지 3</a>
+                <a class="nav-link active text-dark fw-bold" href="/page4">페이지 4</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1>⚙️ 페이지 4: 관리자/Q&A 테스트</h1>
+        <p class="lead">관리자 기능과 Q&A 게시판 기능을 테스트합니다.</p>
+
+        <div class="row">
+            <!-- 테스트 실행 패널 -->
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-warning">
+                        <h5 class="mb-0">테스트 케이스</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-warning w-100 mb-3" onclick="runPageTests()">
+                            ▶ 전체 테스트 실행
+                        </button>
+                        <div id="testCases">
+                            <!-- 테스트 케이스 목록 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API 테스트 패널 -->
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">API 테스트</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="apiTabs" role="tablist">
+                            <li class="nav-item">
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#admin">관리자</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#reports">신고 관리</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#questions">Q&A 질문</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#answers">Q&A 답변</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content p-3 border border-top-0">
+                            <!-- 관리자 -->
+                            <div class="tab-pane fade show active" id="admin">
+                                <h6>관리자 기능</h6>
+                                <div class="row mb-3">
+                                    <div class="col">
+                                        <button class="btn btn-primary me-2" onclick="getAdminPosts()">게시물 관리</button>
+                                        <button class="btn btn-secondary me-2" onclick="getAdminComments()">댓글 관리</button>
+                                        <button class="btn btn-info" onclick="getStatistics()">통계</button>
+                                    </div>
+                                </div>
+                                <hr>
+                                <h6>일괄 삭제</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">삭제할 ID 목록 (쉼표 구분)</label>
+                                    <input type="text" class="form-control" id="batchDeleteIds" placeholder="1,2,3">
+                                </div>
+                                <select class="form-select mb-3" id="batchDeleteType">
+                                    <option value="Post">게시물</option>
+                                    <option value="Comment">댓글</option>
+                                </select>
+                                <button class="btn btn-danger" onclick="batchDelete()">일괄 삭제</button>
+                            </div>
+
+                            <!-- 신고 관리 -->
+                            <div class="tab-pane fade" id="reports">
+                                <h6>신고 관리</h6>
+                                <button class="btn btn-primary mb-3" onclick="getReports()">신고 목록 조회</button>
+                                <hr>
+                                <div class="mb-3">
+                                    <label class="form-label">신고 ID</label>
+                                    <input type="number" class="form-control" id="reportId" value="1">
+                                </div>
+                                <button class="btn btn-success me-2" onclick="approveReport()">승인</button>
+                                <button class="btn btn-secondary" onclick="rejectReport()">거부</button>
+                                <hr>
+                                <h6>블라인드</h6>
+                                <div class="row mb-3">
+                                    <div class="col">
+                                        <select class="form-select" id="blindType">
+                                            <option value="Post">게시물</option>
+                                            <option value="Comment">댓글</option>
+                                        </select>
+                                    </div>
+                                    <div class="col">
+                                        <input type="number" class="form-control" id="blindTargetId" placeholder="대상 ID">
+                                    </div>
+                                </div>
+                                <button class="btn btn-dark" onclick="blindContent()">블라인드</button>
+                            </div>
+
+                            <!-- Q&A 질문 -->
+                            <div class="tab-pane fade" id="questions">
+                                <h6>질문 관리</h6>
+                                <button class="btn btn-primary mb-3" onclick="getQuestions()">질문 목록</button>
+                                <hr>
+                                <h6>질문 작성</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">제목</label>
+                                    <input type="text" class="form-control" id="questionTitle" placeholder="질문 제목">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">내용</label>
+                                    <textarea class="form-control" id="questionContent" rows="3" placeholder="질문 내용"></textarea>
+                                </div>
+                                <button class="btn btn-success" onclick="createQuestion()">질문 작성</button>
+                                <hr>
+                                <h6>질문 조회</h6>
+                                <div class="mb-3">
+                                    <input type="number" class="form-control" id="viewQuestionId" value="1" placeholder="질문 ID">
+                                </div>
+                                <button class="btn btn-primary" onclick="viewQuestion()">조회</button>
+                            </div>
+
+                            <!-- Q&A 답변 -->
+                            <div class="tab-pane fade" id="answers">
+                                <h6>답변 관리</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">질문 ID</label>
+                                    <input type="number" class="form-control" id="answerQuestionId" value="1">
+                                </div>
+                                <button class="btn btn-primary mb-3" onclick="getAnswers()">답변 목록</button>
+                                <hr>
+                                <h6>답변 작성</h6>
+                                <div class="mb-3">
+                                    <textarea class="form-control" id="answerContent" rows="3" placeholder="답변 내용"></textarea>
+                                </div>
+                                <button class="btn btn-success" onclick="createAnswer()">답변 작성</button>
+                                <hr>
+                                <h6>답변 채택/추천</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">답변 ID</label>
+                                    <input type="number" class="form-control" id="answerActionId" value="1">
+                                </div>
+                                <button class="btn btn-warning me-2" onclick="acceptAnswer()">채택</button>
+                                <button class="btn btn-success me-2" onclick="voteAnswerUp()">👍 추천</button>
+                                <button class="btn btn-danger" onclick="voteAnswerDown()">👎 비추천</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 결과 표시 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">결과</h5>
+                    </div>
+                    <div class="card-body">
+                        <pre id="apiResult" class="bg-light p-3" style="max-height: 400px; overflow-y: auto;">결과가 여기에 표시됩니다.</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api/page4';
+
+        function showResult(data) {
+            document.getElementById('apiResult').textContent = JSON.stringify(data, null, 2);
+        }
+
+        // 관리자 기능
+        async function getAdminPosts() {
+            const response = await fetch(`${API_BASE}/admin/posts`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function getAdminComments() {
+            const response = await fetch(`${API_BASE}/admin/comments`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function getStatistics() {
+            const response = await fetch(`${API_BASE}/admin/statistics`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function batchDelete() {
+            const idsText = document.getElementById('batchDeleteIds').value;
+            const targetType = document.getElementById('batchDeleteType').value;
+            const ids = idsText.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+
+            const response = await fetch(`${API_BASE}/admin/batch/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetType, ids })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        // 신고 관리
+        async function getReports() {
+            const response = await fetch(`${API_BASE}/admin/reports`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function approveReport() {
+            const id = document.getElementById('reportId').value;
+            const response = await fetch(`${API_BASE}/admin/reports/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'approve' })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function rejectReport() {
+            const id = document.getElementById('reportId').value;
+            const response = await fetch(`${API_BASE}/admin/reports/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'reject' })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function blindContent() {
+            const targetType = document.getElementById('blindType').value;
+            const targetId = document.getElementById('blindTargetId').value;
+
+            const response = await fetch(`${API_BASE}/admin/blind`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetType, targetId: parseInt(targetId) })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        // Q&A 질문
+        async function getQuestions() {
+            const response = await fetch(`${API_BASE}/questions`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function createQuestion() {
+            const title = document.getElementById('questionTitle').value;
+            const content = document.getElementById('questionContent').value;
+
+            const response = await fetch(`${API_BASE}/questions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function viewQuestion() {
+            const id = document.getElementById('viewQuestionId').value;
+            const response = await fetch(`${API_BASE}/questions/${id}`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        // Q&A 답변
+        async function getAnswers() {
+            const questionId = document.getElementById('answerQuestionId').value;
+            const response = await fetch(`${API_BASE}/questions/${questionId}/answers`);
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function createAnswer() {
+            const questionId = document.getElementById('answerQuestionId').value;
+            const content = document.getElementById('answerContent').value;
+
+            const response = await fetch(`${API_BASE}/questions/${questionId}/answers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function acceptAnswer() {
+            const id = document.getElementById('answerActionId').value;
+            const response = await fetch(`${API_BASE}/answers/${id}/accept`, { method: 'POST' });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function voteAnswerUp() {
+            const id = document.getElementById('answerActionId').value;
+            const response = await fetch(`${API_BASE}/answers/${id}/vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voteType: 'up' })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function voteAnswerDown() {
+            const id = document.getElementById('answerActionId').value;
+            const response = await fetch(`${API_BASE}/answers/${id}/vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voteType: 'down' })
+            });
+            const data = await response.json();
+            showResult(data);
+        }
+
+        async function runPageTests() {
+            const response = await fetch('/api/test/run/4', { method: 'POST' });
+            const data = await response.json();
+            showResult(data);
+            loadTestCases();
+        }
+
+        async function loadTestCases() {
+            const response = await fetch('/api/test/cases?pageNumber=4');
+            const cases = await response.json();
+            
+            const statusResponse = await fetch('/api/test/page/4');
+            const status = await statusResponse.json();
+            
+            const html = cases.map(tc => {
+                const result = status.testResults.find(r => r.testId === tc.testId);
+                const statusClass = result ? (result.passed ? 'text-success' : 'text-danger') : 'text-secondary';
+                const statusIcon = result ? (result.passed ? '✅' : '❌') : '⏳';
+                return `<div class="mb-2 ${statusClass}"><small>${statusIcon} ${tc.testId}: ${tc.testName}</small></div>`;
+            }).join('');
+            
+            document.getElementById('testCases').innerHTML = html;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTestCases);
+    </script>
+</body>
+</html>
