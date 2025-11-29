@@ -15,6 +15,8 @@ public class PostsController : ControllerBase
 {
     private readonly IPostService _postService;
     private readonly IViewCountService _viewCountService;
+    private readonly ILikeService _likeService;
+    private readonly IBookmarkService _bookmarkService;
     private readonly IValidator<CreatePostRequest> _createValidator;
     private readonly IValidator<UpdatePostRequest> _updateValidator;
     private readonly IValidator<DraftPostRequest> _draftValidator;
@@ -22,12 +24,16 @@ public class PostsController : ControllerBase
     public PostsController(
         IPostService postService,
         IViewCountService viewCountService,
+        ILikeService likeService,
+        IBookmarkService bookmarkService,
         IValidator<CreatePostRequest> createValidator,
         IValidator<UpdatePostRequest> updateValidator,
         IValidator<DraftPostRequest> draftValidator)
     {
         _postService = postService;
         _viewCountService = viewCountService;
+        _likeService = likeService;
+        _bookmarkService = bookmarkService;
         _createValidator = createValidator;
         _updateValidator = updateValidator;
         _draftValidator = draftValidator;
@@ -399,6 +405,152 @@ public class PostsController : ControllerBase
         
         return Ok(ApiResponse<PostResponse>.Ok(post));
     }
+    
+    #region 좋아요
+    
+    /// <summary>
+    /// 게시물 좋아요
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpPost("{id:long}/like")]
+    [ProducesResponseType(typeof(ApiResponse<LikeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ApiResponse<LikeResponse>>> LikePost(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        try
+        {
+            var result = await _likeService.LikePostAsync(id, userId.Value);
+            return Ok(ApiResponse<LikeResponse>.Ok(result));
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("찾을 수 없습니다"))
+            {
+                return NotFound(ApiErrorResponse.Create(
+                    "POST_NOT_FOUND",
+                    ex.Message));
+            }
+            
+            return Conflict(ApiErrorResponse.Create(
+                "ALREADY_LIKED",
+                ex.Message));
+        }
+    }
+    
+    /// <summary>
+    /// 게시물 좋아요 취소
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpDelete("{id:long}/like")]
+    [ProducesResponseType(typeof(ApiResponse<LikeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<LikeResponse>>> UnlikePost(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        var result = await _likeService.UnlikePostAsync(id, userId.Value);
+        
+        if (result == null)
+        {
+            return NotFound(ApiErrorResponse.Create(
+                "NOT_FOUND",
+                "좋아요하지 않은 게시물이거나 존재하지 않는 게시물입니다."));
+        }
+        
+        return Ok(ApiResponse<LikeResponse>.Ok(result));
+    }
+    
+    #endregion
+    
+    #region 북마크
+    
+    /// <summary>
+    /// 게시물 북마크
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpPost("{id:long}/bookmark")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> AddBookmark(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        try
+        {
+            await _bookmarkService.AddBookmarkAsync(id, userId.Value);
+            return Ok(ApiResponse<object>.Ok(new { message = "북마크가 추가되었습니다." }));
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("찾을 수 없습니다"))
+            {
+                return NotFound(ApiErrorResponse.Create(
+                    "POST_NOT_FOUND",
+                    ex.Message));
+            }
+            
+            return Conflict(ApiErrorResponse.Create(
+                "ALREADY_BOOKMARKED",
+                ex.Message));
+        }
+    }
+    
+    /// <summary>
+    /// 게시물 북마크 해제
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpDelete("{id:long}/bookmark")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> RemoveBookmark(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        var result = await _bookmarkService.RemoveBookmarkAsync(id, userId.Value);
+        
+        if (!result)
+        {
+            return NotFound(ApiErrorResponse.Create(
+                "NOT_FOUND",
+                "북마크하지 않은 게시물입니다."));
+        }
+        
+        return Ok(ApiResponse<object>.Ok(new { message = "북마크가 해제되었습니다." }));
+    }
+    
+    #endregion
     
     #region Helper Methods
     

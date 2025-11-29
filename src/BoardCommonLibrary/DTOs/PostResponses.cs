@@ -86,6 +86,16 @@ public class PostResponse
     /// 발행일시
     /// </summary>
     public DateTime? PublishedAt { get; set; }
+    
+    /// <summary>
+    /// 삭제 여부 (관리자용)
+    /// </summary>
+    public bool IsDeleted { get; set; }
+    
+    /// <summary>
+    /// 블라인드 처리 여부 (관리자용)
+    /// </summary>
+    public bool IsBlinded { get; set; }
 }
 
 /// <summary>

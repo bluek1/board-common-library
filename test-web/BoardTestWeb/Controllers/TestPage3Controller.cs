@@ -1,184 +1,326 @@
+using BoardCommonLibrary.DTOs;
+using BoardCommonLibrary.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BoardTestWeb.Controllers;
 
 /// <summary>
 /// 페이지 3 테스트 컨트롤러 - 파일/검색
+/// 실제 BoardCommonLibrary 서비스를 호출하여 테스트합니다.
 /// </summary>
 [ApiController]
 [Route("api/page3")]
 public class TestPage3Controller : ControllerBase
 {
-    // TODO: 프로덕션에서는 IConfiguration을 통해 appsettings.json에서 설정 값을 읽도록 변경
-    // 현재는 테스트 목적으로 하드코딩된 값 사용
-    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB (appsettings.json의 BoardLibrary:FileUpload:MaxFileSize와 동일)
-    private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx" }; // appsettings.json의 BoardLibrary:FileUpload:AllowedExtensions와 동일
+    private readonly IFileService _fileService;
+    private readonly IFileValidationService _fileValidationService;
+    private readonly IThumbnailService _thumbnailService;
+    private readonly ISearchService _searchService;
+
+    public TestPage3Controller(
+        IFileService fileService,
+        IFileValidationService fileValidationService,
+        IThumbnailService thumbnailService,
+        ISearchService searchService)
+    {
+        _fileService = fileService;
+        _fileValidationService = fileValidationService;
+        _thumbnailService = thumbnailService;
+        _searchService = searchService;
+    }
+
+    #region File Upload Tests
 
     /// <summary>
-    /// 파일 업로드 테스트
+    /// 파일 업로드 테스트 (T3-001, T3-002, T3-003)
     /// </summary>
     [HttpPost("files/upload")]
-    public IActionResult UploadFile([FromForm] IFormFile file)
+    public async Task<IActionResult> UploadFile([FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
         {
-            return BadRequest(new { error = "파일이 없습니다." });
+            return BadRequest(ApiErrorResponse.Create("FILE_REQUIRED", "파일이 없습니다."));
         }
 
-        if (file.Length > MaxFileSize)
+        // 파일 검증
+        var validationResult = await _fileValidationService.ValidateAsync(file);
+        if (!validationResult.IsValid)
         {
-            return StatusCode(413, new { error = "파일 크기가 최대 허용 크기(10MB)를 초과합니다." });
+            if (validationResult.Errors.Any(e => e.Contains("크기") || e.Contains("size")))
+            {
+                return StatusCode(413, ApiErrorResponse.Create("FILE_TOO_LARGE", validationResult.Errors.First()));
+            }
+            if (validationResult.Errors.Any(e => e.Contains("형식") || e.Contains("확장자") || e.Contains("MIME")))
+            {
+                return StatusCode(415, ApiErrorResponse.Create("UNSUPPORTED_MEDIA_TYPE", validationResult.Errors.First()));
+            }
+            return BadRequest(ApiErrorResponse.Create("VALIDATION_ERROR", validationResult.Errors.First()));
         }
 
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!AllowedExtensions.Contains(extension))
-        {
-            return StatusCode(415, new { error = $"허용되지 않은 파일 형식입니다. 허용 확장자: {string.Join(", ", AllowedExtensions)}" });
-        }
+        // 파일 업로드
+        var userId = GetUserId();
+        var userName = GetUserName();
+        var postId = GetPostIdFromQuery();
 
-        return Created($"/api/files/{Guid.NewGuid()}", new
-        {
-            id = Guid.NewGuid(),
-            fileName = file.FileName,
-            contentType = file.ContentType,
-            fileSize = file.Length,
-            uploadedAt = DateTime.UtcNow
-        });
+        var uploaded = await _fileService.UploadAsync(file, userId, userName, postId);
+        
+        return Created($"/api/page3/files/{uploaded.Id}", ApiResponse<FileInfoResponse>.Ok(uploaded));
     }
 
     /// <summary>
-    /// 다중 파일 업로드 테스트
+    /// 다중 파일 업로드 테스트 (T3-004)
     /// </summary>
     [HttpPost("files/upload-multiple")]
-    public IActionResult UploadMultipleFiles([FromForm] List<IFormFile> files)
+    public async Task<IActionResult> UploadMultipleFiles([FromForm] List<IFormFile> files)
     {
         if (files == null || files.Count == 0)
         {
-            return BadRequest(new { error = "파일이 없습니다." });
+            return BadRequest(ApiErrorResponse.Create("FILES_REQUIRED", "파일이 없습니다."));
         }
 
-        var results = files.Select(file => new
-        {
-            id = Guid.NewGuid(),
-            fileName = file.FileName,
-            contentType = file.ContentType,
-            fileSize = file.Length,
-            uploadedAt = DateTime.UtcNow
-        }).ToList();
+        var userId = GetUserId();
+        var userName = GetUserName();
+        var postId = GetPostIdFromQuery();
 
-        return Created("/api/files", results);
+        var result = await _fileService.UploadMultipleAsync(files, userId, userName, postId);
+
+        return Created("/api/page3/files", ApiResponse<MultipleFileUploadResponse>.Ok(result));
+    }
+
+    #endregion
+
+    #region File Download/Management Tests
+
+    /// <summary>
+    /// 파일 다운로드 테스트 (T3-005, T3-006)
+    /// </summary>
+    [HttpGet("files/{id:long}/download")]
+    public async Task<IActionResult> DownloadFile(long id)
+    {
+        var downloadResult = await _fileService.DownloadAsync(id);
+        
+        if (downloadResult == null)
+        {
+            return NotFound(ApiErrorResponse.Create("FILE_NOT_FOUND", "파일을 찾을 수 없습니다."));
+        }
+
+        return File(downloadResult.FileStream, downloadResult.ContentType, downloadResult.FileName);
     }
 
     /// <summary>
-    /// 파일 다운로드 테스트
+    /// 파일 정보 조회 테스트
     /// </summary>
-    [HttpGet("files/{id}")]
-    public IActionResult DownloadFile(Guid id)
+    [HttpGet("files/{id:long}")]
+    public async Task<IActionResult> GetFile(long id)
     {
-        if (id == Guid.Empty)
+        var file = await _fileService.GetByIdAsync(id);
+        
+        if (file == null)
         {
-            return NotFound(new { error = "파일을 찾을 수 없습니다." });
+            return NotFound(ApiErrorResponse.Create("FILE_NOT_FOUND", "파일을 찾을 수 없습니다."));
         }
 
-        // 테스트용 더미 파일 데이터
-        var bytes = System.Text.Encoding.UTF8.GetBytes("테스트 파일 내용입니다.");
-        return File(bytes, "application/octet-stream", "test-file.txt");
+        return Ok(ApiResponse<FileInfoResponse>.Ok(file));
     }
 
     /// <summary>
-    /// 파일 삭제 테스트
+    /// 파일 삭제 테스트 (T3-007)
     /// </summary>
-    [HttpDelete("files/{id}")]
-    public IActionResult DeleteFile(Guid id)
+    [HttpDelete("files/{id:long}")]
+    public async Task<IActionResult> DeleteFile(long id)
     {
-        if (id == Guid.Empty)
+        var file = await _fileService.GetByIdAsync(id);
+        if (file == null)
         {
-            return NotFound(new { error = "파일을 찾을 수 없습니다." });
+            return NotFound(ApiErrorResponse.Create("FILE_NOT_FOUND", "파일을 찾을 수 없습니다."));
         }
 
+        var userId = GetUserId();
+        var isAdmin = IsAdmin();
+
+        // 권한 확인: 업로더 또는 관리자만 삭제 가능
+        if (file.UploaderId != userId && !isAdmin)
+        {
+            return StatusCode(403, ApiErrorResponse.Create("FORBIDDEN", "파일을 삭제할 권한이 없습니다."));
+        }
+
+        await _fileService.DeleteAsync(id, userId);
         return NoContent();
     }
 
     /// <summary>
-    /// 썸네일 조회 테스트
+    /// 썸네일 조회 테스트 (T3-008)
     /// </summary>
-    [HttpGet("files/{id}/thumbnail")]
-    public IActionResult GetThumbnail(Guid id)
+    [HttpGet("files/{id:long}/thumbnail")]
+    public async Task<IActionResult> GetThumbnail(long id)
     {
-        if (id == Guid.Empty)
+        var thumbnailResult = await _fileService.GetThumbnailAsync(id);
+        
+        if (thumbnailResult == null)
         {
-            return NotFound(new { error = "파일을 찾을 수 없습니다." });
+            return NotFound(ApiErrorResponse.Create("THUMBNAIL_NOT_FOUND", "썸네일을 찾을 수 없습니다."));
         }
 
-        // 1x1 픽셀 PNG 이미지 (테스트용)
-        var pngBytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
-        return File(pngBytes, "image/png");
+        return File(thumbnailResult.FileStream, thumbnailResult.ContentType);
     }
 
     /// <summary>
-    /// 통합 검색 테스트
+    /// 게시물의 파일 목록 조회
+    /// </summary>
+    [HttpGet("posts/{postId:long}/files")]
+    public async Task<IActionResult> GetFilesByPost(long postId)
+    {
+        var files = await _fileService.GetByPostIdAsync(postId);
+        return Ok(ApiResponse<IEnumerable<FileInfoResponse>>.Ok(files));
+    }
+
+    #endregion
+
+    #region Search Tests
+
+    /// <summary>
+    /// 통합 검색 테스트 (T3-009, T3-010, T3-013)
     /// </summary>
     [HttpGet("search")]
-    public IActionResult Search([FromQuery] string q, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> Search([FromQuery] PostSearchParameters request)
     {
-        if (string.IsNullOrEmpty(q))
+        if (string.IsNullOrWhiteSpace(request.Query))
         {
-            return BadRequest(new { error = "검색어를 입력해주세요." });
+            return BadRequest(ApiErrorResponse.Create("QUERY_REQUIRED", "검색어를 입력해주세요."));
         }
 
-        var results = Enumerable.Range(1, 10).Select(i => new
-        {
-            id = i,
-            title = $"{q}를 포함한 게시물 {i}",
-            content = $"본문에 {q}가 포함되어 있습니다...",
-            highlightedTitle = $"<mark>{q}</mark>를 포함한 게시물 {i}",
-            highlightedContent = $"본문에 <mark>{q}</mark>가 포함되어 있습니다...",
-            createdAt = DateTime.UtcNow.AddDays(-i)
-        }).ToList();
-
-        return Ok(new
-        {
-            query = q,
-            data = results,
-            meta = new
-            {
-                page = page,
-                pageSize = pageSize,
-                totalCount = results.Count,
-                totalPages = 1
-            }
-        });
+        var result = await _searchService.SearchPostsAsync(request);
+        return Ok(ApiResponse<PagedSearchResult<PostSearchResult>>.Ok(result));
     }
 
     /// <summary>
-    /// 게시물 검색 테스트
+    /// 게시물 검색 테스트 (T3-009, T3-010, T3-012)
     /// </summary>
     [HttpGet("search/posts")]
-    public IActionResult SearchPosts([FromQuery] string q, [FromQuery] string? category = null, [FromQuery] string? tag = null)
+    public async Task<IActionResult> SearchPosts([FromQuery] PostSearchParameters request)
     {
-        var results = Enumerable.Range(1, 5).Select(i => new
+        if (string.IsNullOrWhiteSpace(request.Query))
         {
-            id = i,
-            title = $"{q}를 포함한 게시물 {i}",
-            category = category ?? "일반",
-            tags = new[] { tag ?? "태그1", "태그2" },
-            createdAt = DateTime.UtcNow.AddDays(-i)
-        }).ToList();
+            return BadRequest(ApiErrorResponse.Create("QUERY_REQUIRED", "검색어를 입력해주세요."));
+        }
 
-        return Ok(results);
+        var result = await _searchService.SearchPostsAsync(request);
+        return Ok(ApiResponse<PagedSearchResult<PostSearchResult>>.Ok(result));
     }
 
     /// <summary>
-    /// 태그 검색 테스트
+    /// 태그 검색 테스트 (T3-011)
     /// </summary>
     [HttpGet("search/tags")]
-    public IActionResult SearchTags([FromQuery] string q)
+    public async Task<IActionResult> SearchTags([FromQuery] string q, [FromQuery] int limit = 10)
     {
-        var tags = new[] { "ASP.NET", "C#", "게시판", "API", "테스트" }
-            .Where(t => t.Contains(q, StringComparison.OrdinalIgnoreCase))
-            .Select(t => new { name = t, postCount = Random.Shared.Next(1, 100) })
-            .ToList();
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return BadRequest(ApiErrorResponse.Create("QUERY_REQUIRED", "검색어를 입력해주세요."));
+        }
 
-        return Ok(tags);
+        var request = new TagSearchParameters
+        {
+            Query = q,
+            Limit = limit
+        };
+
+        var result = await _searchService.SearchTagsAsync(request);
+        return Ok(ApiResponse<List<TagSearchResult>>.Ok(result));
     }
+
+    /// <summary>
+    /// 작성자 검색 테스트
+    /// </summary>
+    [HttpGet("search/authors")]
+    public async Task<IActionResult> SearchAuthors([FromQuery] string q, [FromQuery] int limit = 10)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return BadRequest(ApiErrorResponse.Create("QUERY_REQUIRED", "검색어를 입력해주세요."));
+        }
+
+        var request = new AuthorSearchParameters
+        {
+            Query = q,
+            Limit = limit
+        };
+
+        var result = await _searchService.SearchAuthorsAsync(request);
+        return Ok(ApiResponse<List<AuthorSearchResult>>.Ok(result));
+    }
+
+    /// <summary>
+    /// 검색어 자동완성/제안 테스트 (T3-014)
+    /// </summary>
+    [HttpGet("search/suggestions")]
+    public async Task<IActionResult> GetSuggestions([FromQuery] string q, [FromQuery] int limit = 5)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return Ok(ApiResponse<List<SearchSuggestion>>.Ok(new List<SearchSuggestion>()));
+        }
+
+        var result = await _searchService.GetSuggestionsAsync(q, limit);
+        return Ok(ApiResponse<List<SearchSuggestion>>.Ok(result));
+    }
+
+    /// <summary>
+    /// 빈 검색 결과 테스트 (T3-015)
+    /// </summary>
+    [HttpGet("search/empty-test")]
+    public async Task<IActionResult> SearchEmptyTest()
+    {
+        var request = new PostSearchParameters
+        {
+            Query = "가나다라마바사아자차카타파하_존재하지않는검색어_" + Guid.NewGuid().ToString()
+        };
+
+        var result = await _searchService.SearchPostsAsync(request);
+        return Ok(ApiResponse<PagedSearchResult<PostSearchResult>>.Ok(result));
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private long GetUserId()
+    {
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdValue) && 
+            long.TryParse(userIdValue, out var userId))
+        {
+            return userId;
+        }
+        return 1; // 테스트용 기본값
+    }
+
+    private string GetUserName()
+    {
+        if (Request.Headers.TryGetValue("X-User-Name", out var userName))
+        {
+            return userName.ToString();
+        }
+        return "TestUser";
+    }
+
+    private bool IsAdmin()
+    {
+        if (Request.Headers.TryGetValue("X-User-Role", out var role))
+        {
+            return role.ToString().Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
+
+    private long? GetPostIdFromQuery()
+    {
+        if (Request.Query.TryGetValue("postId", out var postIdValue) && 
+            long.TryParse(postIdValue, out var postId))
+        {
+            return postId;
+        }
+        return null;
+    }
+
+    #endregion
 }

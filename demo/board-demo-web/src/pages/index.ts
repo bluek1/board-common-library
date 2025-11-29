@@ -1,0 +1,9 @@
+export { HomePage } from './HomePage';
+export { LoginPage } from './LoginPage';
+export { RegisterPage } from './RegisterPage';
+export { PostListPage } from './PostListPage';
+export { PostDetailPage } from './PostDetailPage';
+export { PostCreatePage } from './PostCreatePage';
+export { QuestionListPage } from './QuestionListPage';
+export { QuestionDetailPage } from './QuestionDetailPage';
+export { QuestionCreatePage } from './QuestionCreatePage';

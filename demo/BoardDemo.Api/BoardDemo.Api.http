@@ -1,0 +1,6 @@
+@BoardDemo.Api_HostAddress = http://localhost:5117
+
+GET {{BoardDemo.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

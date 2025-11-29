@@ -1,419 +1,777 @@
 using Microsoft.AspNetCore.Mvc;
+using BoardCommonLibrary.Interfaces;
+using BoardCommonLibrary.DTOs;
+using BoardCommonLibrary.Entities;
 
 namespace BoardTestWeb.Controllers;
 
 /// <summary>
-/// 페이지 4 테스트 컨트롤러 - 관리자/Q&A
+/// 페이지 4 테스트 컨트롤러: 관리자 기능 및 Q&A 게시판
 /// </summary>
 [ApiController]
-[Route("api/page4")]
+[Route("api/test/page4")]
 public class TestPage4Controller : ControllerBase
 {
-    #region 관리자 기능
+    private readonly IQuestionService _questionService;
+    private readonly IAnswerService _answerService;
+    private readonly IReportService _reportService;
+    private readonly IAdminService _adminService;
+
+    public TestPage4Controller(
+        IQuestionService questionService,
+        IAnswerService answerService,
+        IReportService reportService,
+        IAdminService adminService)
+    {
+        _questionService = questionService;
+        _answerService = answerService;
+        _reportService = reportService;
+        _adminService = adminService;
+    }
+
+    #region Admin - 게시물 관리 (P4-001)
 
     /// <summary>
-    /// 관리자 게시물 목록 조회 테스트
+    /// 관리자용 전체 게시물 조회
     /// </summary>
     [HttpGet("admin/posts")]
-    public IActionResult GetAdminPosts([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<PagedResponse<PostResponse>>> GetAllPosts(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] PostStatus? status = null,
+        [FromQuery] bool? isDeleted = null,
+        [FromQuery] bool? isBlinded = null)
     {
-        var posts = Enumerable.Range(1, pageSize).Select(i => new
+        var parameters = new AdminPostQueryParameters
         {
-            id = (page - 1) * pageSize + i,
-            title = $"게시물 {(page - 1) * pageSize + i}",
-            authorName = $"사용자{Random.Shared.Next(1, 10)}",
-            status = Random.Shared.Next(0, 2) == 0 ? "Published" : "Draft",
-            isBlinded = false,
-            reportCount = Random.Shared.Next(0, 5),
-            createdAt = DateTime.UtcNow.AddDays(-Random.Shared.Next(0, 30))
-        }).ToList();
-
-        return Ok(new
-        {
-            data = posts,
-            meta = new { page, pageSize, totalCount = 500, totalPages = 25 }
-        });
+            Page = page,
+            PageSize = pageSize,
+            Status = status,
+            IsDeleted = isDeleted,
+            IsBlinded = isBlinded
+        };
+        
+        var result = await _adminService.GetAllPostsAsync(parameters);
+        return Ok(result);
     }
 
+    #endregion
+
+    #region Admin - 댓글 관리 (P4-002)
+
     /// <summary>
-    /// 관리자 댓글 목록 조회 테스트
+    /// 관리자용 전체 댓글 조회
     /// </summary>
     [HttpGet("admin/comments")]
-    public IActionResult GetAdminComments([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<PagedResponse<CommentResponse>>> GetAllComments(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] bool? isDeleted = null,
+        [FromQuery] bool? isBlinded = null)
     {
-        var comments = Enumerable.Range(1, pageSize).Select(i => new
+        var parameters = new AdminCommentQueryParameters
         {
-            id = (page - 1) * pageSize + i,
-            content = $"댓글 내용 {i}",
-            postId = Random.Shared.Next(1, 100),
-            authorName = $"사용자{Random.Shared.Next(1, 10)}",
-            isBlinded = false,
-            reportCount = Random.Shared.Next(0, 3),
-            createdAt = DateTime.UtcNow.AddDays(-Random.Shared.Next(0, 30))
-        }).ToList();
-
-        return Ok(new
-        {
-            data = comments,
-            meta = new { page, pageSize, totalCount = 1000, totalPages = 50 }
-        });
+            Page = page,
+            PageSize = pageSize,
+            IsDeleted = isDeleted,
+            IsBlinded = isBlinded
+        };
+        
+        var result = await _adminService.GetAllCommentsAsync(parameters);
+        return Ok(result);
     }
 
+    #endregion
+
+    #region Admin - 신고 관리 (P4-003, P4-004)
+
     /// <summary>
-    /// 신고 목록 조회 테스트
+    /// 신고 목록 조회
     /// </summary>
     [HttpGet("admin/reports")]
-    public IActionResult GetReports([FromQuery] string? status = null)
+    public async Task<ActionResult<PagedResponse<ReportResponse>>> GetReports(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] ReportStatus? status = null,
+        [FromQuery] ReportTargetType? targetType = null)
     {
-        var reports = Enumerable.Range(1, 10).Select(i => new
+        var parameters = new ReportQueryParameters
         {
-            id = i,
-            targetType = i % 2 == 0 ? "Post" : "Comment",
-            targetId = Random.Shared.Next(1, 100),
-            reason = new[] { "욕설", "스팸", "부적절한 내용", "광고" }[Random.Shared.Next(0, 4)],
-            reporterName = $"신고자{i}",
-            status = status ?? (i % 3 == 0 ? "Processed" : "Pending"),
-            createdAt = DateTime.UtcNow.AddDays(-i)
-        }).ToList();
-
-        return Ok(reports);
+            Page = page,
+            PageSize = pageSize,
+            Status = status,
+            TargetType = targetType
+        };
+        
+        var result = await _reportService.GetAllAsync(parameters);
+        return Ok(result);
     }
 
     /// <summary>
-    /// 신고 처리 테스트
+    /// 신고 상세 조회
     /// </summary>
-    [HttpPut("admin/reports/{id}")]
-    public IActionResult ProcessReport(int id, [FromBody] ProcessReportRequest request)
+    [HttpGet("admin/reports/{id:long}")]
+    public async Task<ActionResult<ReportResponse>> GetReport(long id)
     {
-        return Ok(new
-        {
-            id = id,
-            status = request.Action,
-            processedAt = DateTime.UtcNow,
-            processedBy = "관리자"
-        });
+        var result = await _reportService.GetByIdAsync(id);
+        if (result == null)
+            return NotFound(new { message = "신고를 찾을 수 없습니다." });
+        return Ok(result);
     }
 
     /// <summary>
-    /// 콘텐츠 블라인드 테스트
+    /// 신고 처리
+    /// </summary>
+    [HttpPut("admin/reports/{id:long}")]
+    public async Task<ActionResult<ReportResponse>> ProcessReport(long id, [FromBody] ProcessReportApiRequest request)
+    {
+        try
+        {
+            var processRequest = new ProcessReportRequest
+            {
+                Status = request.Status,
+                ProcessingNote = request.ProcessingNote
+            };
+            
+            var result = await _reportService.ProcessAsync(id, processRequest, request.ProcessorId, request.ProcessorName ?? "Admin");
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "신고를 찾을 수 없습니다." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 신고 생성
+    /// </summary>
+    [HttpPost("reports")]
+    public async Task<ActionResult<ReportResponse>> CreateReport([FromBody] CreateReportApiRequest request)
+    {
+        try
+        {
+            var createRequest = new CreateReportRequest
+            {
+                TargetType = request.TargetType,
+                TargetId = request.TargetId,
+                Reason = request.Reason,
+                Description = request.Description
+            };
+            
+            var result = await _reportService.CreateAsync(createRequest, request.ReporterId, request.ReporterName ?? "User");
+            return CreatedAtAction(nameof(GetReport), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    #endregion
+
+    #region Admin - 콘텐츠 블라인드 (P4-005)
+
+    /// <summary>
+    /// 콘텐츠 블라인드 처리
     /// </summary>
     [HttpPost("admin/blind")]
-    public IActionResult BlindContent([FromBody] BlindRequest request)
+    public async Task<ActionResult> BlindContent([FromBody] BlindContentApiRequest request)
     {
-        return Ok(new
+        try
         {
-            targetType = request.TargetType,
-            targetId = request.TargetId,
-            isBlinded = true,
-            blindedAt = DateTime.UtcNow
-        });
+            var blindRequest = new BlindContentRequest
+            {
+                TargetType = request.TargetType,
+                TargetId = request.TargetId,
+                IsBlinded = request.IsBlinded,
+                Reason = request.Reason
+            };
+            
+            var result = await _adminService.BlindContentAsync(blindRequest);
+            return Ok(new { message = request.IsBlinded ? "블라인드 처리되었습니다." : "블라인드가 해제되었습니다.", success = result });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "콘텐츠를 찾을 수 없습니다." });
+        }
     }
 
+    #endregion
+
+    #region Admin - 일괄 삭제 (P4-006)
+
     /// <summary>
-    /// 일괄 삭제 테스트
+    /// 일괄 삭제
     /// </summary>
     [HttpPost("admin/batch/delete")]
-    public IActionResult BatchDelete([FromBody] BatchDeleteRequest request)
+    public async Task<ActionResult<BatchDeleteResponse>> BatchDelete([FromBody] BatchDeleteApiRequest request)
     {
-        return Ok(new
+        var deleteRequest = new BatchDeleteRequest
         {
-            deletedCount = request.Ids.Count,
-            targetType = request.TargetType,
-            deletedAt = DateTime.UtcNow
-        });
+            TargetType = request.TargetType,
+            Ids = request.Ids,
+            HardDelete = request.HardDelete
+        };
+        
+        var result = await _adminService.BatchDeleteAsync(deleteRequest);
+        return Ok(result);
     }
 
+    #endregion
+
+    #region Admin - 통계 조회 (P4-007)
+
     /// <summary>
-    /// 통계 조회 테스트
+    /// 게시판 통계 조회
     /// </summary>
     [HttpGet("admin/statistics")]
-    public IActionResult GetStatistics()
+    public async Task<ActionResult<BoardStatisticsResponse>> GetStatistics()
     {
-        return Ok(new
-        {
-            posts = new
-            {
-                total = 1234,
-                today = 23,
-                thisWeek = 156,
-                thisMonth = 678
-            },
-            comments = new
-            {
-                total = 5678,
-                today = 89,
-                thisWeek = 456,
-                thisMonth = 2345
-            },
-            users = new
-            {
-                total = 456,
-                activeToday = 78,
-                newThisWeek = 12
-            },
-            reports = new
-            {
-                pending = 15,
-                processedToday = 8,
-                totalThisMonth = 45
-            }
-        });
+        var result = await _adminService.GetStatisticsAsync();
+        return Ok(result);
     }
 
     #endregion
 
-    #region Q&A 게시판
+    #region Q&A - 질문 관리 (P4-008, P4-009)
 
     /// <summary>
-    /// 질문 목록 조회 테스트
+    /// 질문 목록 조회
     /// </summary>
     [HttpGet("questions")]
-    public IActionResult GetQuestions([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<PagedResponse<QuestionResponse>>> GetQuestions(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] QuestionStatus? status = null,
+        [FromQuery] string? tag = null,
+        [FromQuery] string? sort = "createdAt",
+        [FromQuery] string? order = "desc")
     {
-        var questions = Enumerable.Range(1, pageSize).Select(i => new
+        var parameters = new QuestionQueryParameters
         {
-            id = (page - 1) * pageSize + i,
-            title = $"질문 {(page - 1) * pageSize + i}: 이것은 어떻게 해결하나요?",
-            authorName = $"질문자{Random.Shared.Next(1, 10)}",
-            status = new[] { "Open", "Answered", "Closed" }[Random.Shared.Next(0, 3)],
-            answerCount = Random.Shared.Next(0, 10),
-            voteCount = Random.Shared.Next(0, 50),
-            viewCount = Random.Shared.Next(10, 500),
-            tags = new[] { "C#", "ASP.NET", "게시판" }.Take(Random.Shared.Next(1, 4)).ToArray(),
-            createdAt = DateTime.UtcNow.AddDays(-Random.Shared.Next(0, 30))
-        }).ToList();
-
-        return Ok(new
-        {
-            data = questions,
-            meta = new { page, pageSize, totalCount = 100, totalPages = 5 }
-        });
+            Page = page,
+            PageSize = pageSize,
+            Status = status,
+            Tag = tag,
+            Sort = sort ?? "createdAt",
+            Order = order ?? "desc"
+        };
+        
+        var result = await _questionService.GetAllAsync(parameters);
+        return Ok(result);
     }
 
     /// <summary>
-    /// 질문 상세 조회 테스트
+    /// 질문 상세 조회
     /// </summary>
-    [HttpGet("questions/{id}")]
-    public IActionResult GetQuestion(int id)
+    [HttpGet("questions/{id:long}")]
+    public async Task<ActionResult<QuestionDetailResponse>> GetQuestion(long id, [FromQuery] long? currentUserId = null)
     {
-        if (id <= 0)
-        {
-            return NotFound(new { error = "질문을 찾을 수 없습니다." });
-        }
-
-        return Ok(new
-        {
-            id = id,
-            title = $"질문 {id}: 게시판 라이브러리를 어떻게 사용하나요?",
-            content = "ASP.NET Core에서 게시판 라이브러리를 사용하려고 합니다. 설정 방법을 알려주세요.",
-            authorName = "질문자1",
-            status = "Open",
-            answerCount = 3,
-            voteCount = 15,
-            viewCount = 234,
-            tags = new[] { "ASP.NET", "게시판", "설정" },
-            acceptedAnswerId = (int?)null,
-            createdAt = DateTime.UtcNow.AddDays(-5)
-        });
+        var result = await _questionService.GetByIdAsync(id, currentUserId);
+        if (result == null)
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        return Ok(result);
     }
 
     /// <summary>
-    /// 질문 작성 테스트
+    /// 질문 작성
     /// </summary>
     [HttpPost("questions")]
-    public IActionResult CreateQuestion([FromBody] CreateQuestionRequest request)
+    public async Task<ActionResult<QuestionResponse>> CreateQuestion([FromBody] CreateQuestionApiRequest request)
     {
-        if (string.IsNullOrEmpty(request.Title))
+        var createRequest = new CreateQuestionRequest
         {
-            return BadRequest(new { error = "제목은 필수입니다." });
+            Title = request.Title,
+            Content = request.Content,
+            Tags = request.Tags,
+            BountyPoints = request.BountyPoints
+        };
+        
+        var result = await _questionService.CreateAsync(createRequest, request.AuthorId, request.AuthorName ?? "User");
+        return CreatedAtAction(nameof(GetQuestion), new { id = result.Id }, result);
+    }
+
+    /// <summary>
+    /// 질문 수정
+    /// </summary>
+    [HttpPut("questions/{id:long}")]
+    public async Task<ActionResult<QuestionResponse>> UpdateQuestion(long id, [FromBody] UpdateQuestionApiRequest request)
+    {
+        try
+        {
+            var updateRequest = new UpdateQuestionRequest
+            {
+                Title = request.Title,
+                Content = request.Content,
+                Tags = request.Tags
+            };
+            
+            var result = await _questionService.UpdateAsync(id, updateRequest, request.UserId);
+            return Ok(result);
         }
-
-        return Created($"/api/questions/{1}", new
+        catch (KeyNotFoundException)
         {
-            id = 1,
-            title = request.Title,
-            content = request.Content,
-            status = "Open",
-            createdAt = DateTime.UtcNow
-        });
-    }
-
-    /// <summary>
-    /// 질문 수정 테스트
-    /// </summary>
-    [HttpPut("questions/{id}")]
-    public IActionResult UpdateQuestion(int id, [FromBody] UpdateQuestionRequest request)
-    {
-        return Ok(new
-        {
-            id = id,
-            title = request.Title,
-            content = request.Content,
-            updatedAt = DateTime.UtcNow
-        });
-    }
-
-    /// <summary>
-    /// 질문 삭제 테스트
-    /// </summary>
-    [HttpDelete("questions/{id}")]
-    public IActionResult DeleteQuestion(int id)
-    {
-        return NoContent();
-    }
-
-    /// <summary>
-    /// 답변 목록 조회 테스트
-    /// </summary>
-    [HttpGet("questions/{questionId}/answers")]
-    public IActionResult GetAnswers(int questionId)
-    {
-        var answers = Enumerable.Range(1, 5).Select(i => new
-        {
-            id = i,
-            questionId = questionId,
-            content = $"답변 {i}: 이렇게 하시면 됩니다...",
-            authorName = $"답변자{i}",
-            isAccepted = i == 1,
-            voteCount = Random.Shared.Next(0, 30),
-            createdAt = DateTime.UtcNow.AddDays(-Random.Shared.Next(0, 5))
-        }).OrderByDescending(a => a.isAccepted).ThenByDescending(a => a.voteCount).ToList();
-
-        return Ok(answers);
-    }
-
-    /// <summary>
-    /// 답변 작성 테스트
-    /// </summary>
-    [HttpPost("questions/{questionId}/answers")]
-    public IActionResult CreateAnswer(int questionId, [FromBody] CreateAnswerRequest request)
-    {
-        if (string.IsNullOrEmpty(request.Content))
-        {
-            return BadRequest(new { error = "답변 내용은 필수입니다." });
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
         }
-
-        return Created($"/api/answers/{1}", new
+        catch (UnauthorizedAccessException)
         {
-            id = 1,
-            questionId = questionId,
-            content = request.Content,
-            isAccepted = false,
-            voteCount = 0,
-            createdAt = DateTime.UtcNow
-        });
+            return Forbid();
+        }
     }
 
     /// <summary>
-    /// 답변 수정 테스트
+    /// 질문 삭제
     /// </summary>
-    [HttpPut("answers/{id}")]
-    public IActionResult UpdateAnswer(int id, [FromBody] UpdateAnswerRequest request)
+    [HttpDelete("questions/{id:long}")]
+    public async Task<ActionResult> DeleteQuestion(long id, [FromQuery] long userId)
     {
-        return Ok(new
+        try
         {
-            id = id,
-            content = request.Content,
-            updatedAt = DateTime.UtcNow
-        });
-    }
-
-    /// <summary>
-    /// 답변 삭제 테스트
-    /// </summary>
-    [HttpDelete("answers/{id}")]
-    public IActionResult DeleteAnswer(int id)
-    {
-        return NoContent();
-    }
-
-    /// <summary>
-    /// 답변 채택 테스트
-    /// </summary>
-    [HttpPost("answers/{id}/accept")]
-    public IActionResult AcceptAnswer(int id)
-    {
-        return Ok(new
+            var result = await _questionService.DeleteAsync(id, userId);
+            if (!result)
+                return BadRequest(new { message = "질문을 삭제할 수 없습니다." });
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
         {
-            id = id,
-            isAccepted = true,
-            acceptedAt = DateTime.UtcNow
-        });
-    }
-
-    /// <summary>
-    /// 답변 추천 테스트
-    /// </summary>
-    [HttpPost("answers/{id}/vote")]
-    public IActionResult VoteAnswer(int id, [FromBody] VoteRequest request)
-    {
-        return Ok(new
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        }
+        catch (UnauthorizedAccessException)
         {
-            id = id,
-            voteType = request.VoteType,
-            voteCount = request.VoteType == "up" ? 11 : 9
-        });
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>
-    /// 답변 추천 취소 테스트
+    /// 질문 종료
     /// </summary>
-    [HttpDelete("answers/{id}/vote")]
-    public IActionResult UnvoteAnswer(int id)
+    [HttpPost("questions/{id:long}/close")]
+    public async Task<ActionResult<QuestionResponse>> CloseQuestion(long id, [FromBody] QuestionUserRequest request)
     {
-        return Ok(new { id = id, voteCount = 10 });
+        try
+        {
+            var result = await _questionService.CloseAsync(id, request.UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    /// <summary>
+    /// 질문 재개
+    /// </summary>
+    [HttpPost("questions/{id:long}/reopen")]
+    public async Task<ActionResult<QuestionResponse>> ReopenQuestion(long id, [FromBody] QuestionUserRequest request)
+    {
+        try
+        {
+            var result = await _questionService.ReopenAsync(id, request.UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 질문 추천
+    /// </summary>
+    [HttpPost("questions/{id:long}/vote")]
+    public async Task<ActionResult> VoteQuestion(long id, [FromBody] VoteApiRequest request)
+    {
+        try
+        {
+            var newVoteCount = await _questionService.VoteAsync(id, request.UserId, request.VoteType);
+            return Ok(new { voteCount = newVoteCount });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 질문 추천 취소
+    /// </summary>
+    [HttpDelete("questions/{id:long}/vote")]
+    public async Task<ActionResult> RemoveVoteQuestion(long id, [FromQuery] long userId)
+    {
+        try
+        {
+            var result = await _questionService.RemoveVoteAsync(id, userId);
+            if (!result)
+                return NotFound(new { message = "투표를 찾을 수 없습니다." });
+            return Ok(new { message = "투표가 취소되었습니다." });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        }
+    }
+
+    /// <summary>
+    /// 조회수 증가
+    /// </summary>
+    [HttpPost("questions/{id:long}/view")]
+    public async Task<ActionResult> IncrementViewCount(long id)
+    {
+        try
+        {
+            await _questionService.IncrementViewCountAsync(id);
+            return Ok(new { message = "조회수가 증가되었습니다." });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        }
+    }
+
+    #endregion
+
+    #region Q&A - 답변 관리 (P4-010, P4-011, P4-012)
+
+    /// <summary>
+    /// 질문의 답변 목록 조회
+    /// </summary>
+    [HttpGet("questions/{questionId:long}/answers")]
+    public async Task<ActionResult<List<AnswerResponse>>> GetAnswers(
+        long questionId,
+        [FromQuery] long? currentUserId = null)
+    {
+        var result = await _answerService.GetByQuestionIdAsync(questionId, currentUserId);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// 답변 상세 조회
+    /// </summary>
+    [HttpGet("answers/{id:long}")]
+    public async Task<ActionResult<AnswerResponse>> GetAnswer(long id, [FromQuery] long? currentUserId = null)
+    {
+        var result = await _answerService.GetByIdAsync(id, currentUserId);
+        if (result == null)
+            return NotFound(new { message = "답변을 찾을 수 없습니다." });
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// 답변 작성
+    /// </summary>
+    [HttpPost("questions/{questionId:long}/answers")]
+    public async Task<ActionResult<AnswerResponse>> CreateAnswer(long questionId, [FromBody] CreateAnswerApiRequest request)
+    {
+        try
+        {
+            var createRequest = new CreateAnswerRequest
+            {
+                Content = request.Content
+            };
+            
+            var result = await _answerService.CreateAsync(questionId, createRequest, request.AuthorId, request.AuthorName ?? "User");
+            return CreatedAtAction(nameof(GetAnswer), new { id = result.Id }, result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "질문을 찾을 수 없습니다." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 답변 수정
+    /// </summary>
+    [HttpPut("answers/{id:long}")]
+    public async Task<ActionResult<AnswerResponse>> UpdateAnswer(long id, [FromBody] UpdateAnswerApiRequest request)
+    {
+        try
+        {
+            var updateRequest = new UpdateAnswerRequest
+            {
+                Content = request.Content
+            };
+            
+            var result = await _answerService.UpdateAsync(id, updateRequest, request.UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "답변을 찾을 수 없습니다." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    /// <summary>
+    /// 답변 삭제
+    /// </summary>
+    [HttpDelete("answers/{id:long}")]
+    public async Task<ActionResult> DeleteAnswer(long id, [FromQuery] long userId)
+    {
+        try
+        {
+            var result = await _answerService.DeleteAsync(id, userId);
+            if (!result)
+                return BadRequest(new { message = "답변을 삭제할 수 없습니다." });
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "답변을 찾을 수 없습니다." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 답변 채택
+    /// </summary>
+    [HttpPost("answers/{id:long}/accept")]
+    public async Task<ActionResult<AnswerResponse>> AcceptAnswer(long id, [FromBody] AcceptAnswerApiRequest request)
+    {
+        try
+        {
+            var result = await _answerService.AcceptAsync(id, request.QuestionAuthorId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "답변을 찾을 수 없습니다." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 답변 채택 취소
+    /// </summary>
+    [HttpDelete("answers/{id:long}/accept")]
+    public async Task<ActionResult> UnacceptAnswer(long id, [FromBody] UnacceptAnswerApiRequest request)
+    {
+        try
+        {
+            var result = await _answerService.UnacceptAsync(id, request.QuestionAuthorId);
+            if (!result)
+                return BadRequest(new { message = "채택 취소에 실패했습니다." });
+            return Ok(new { message = "채택이 취소되었습니다." });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "답변을 찾을 수 없습니다." });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    /// <summary>
+    /// 답변 추천
+    /// </summary>
+    [HttpPost("answers/{id:long}/vote")]
+    public async Task<ActionResult<AnswerResponse>> VoteAnswer(long id, [FromBody] VoteApiRequest request)
+    {
+        try
+        {
+            var result = await _answerService.VoteAsync(id, request.UserId, request.VoteType);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "답변을 찾을 수 없습니다." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 답변 추천 취소
+    /// </summary>
+    [HttpDelete("answers/{id:long}/vote")]
+    public async Task<ActionResult> RemoveVoteAnswer(long id, [FromQuery] long userId)
+    {
+        try
+        {
+            var result = await _answerService.RemoveVoteAsync(id, userId);
+            if (!result)
+                return NotFound(new { message = "투표를 찾을 수 없습니다." });
+            return Ok(new { message = "투표가 취소되었습니다." });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "답변을 찾을 수 없습니다." });
+        }
     }
 
     #endregion
 }
 
-#region Request Models
+#region API Request Models
 
-public class ProcessReportRequest
+/// <summary>
+/// 신고 처리 API 요청
+/// </summary>
+public class ProcessReportApiRequest
 {
-    public string Action { get; set; } = string.Empty; // "approve" or "reject"
-    public string? Note { get; set; }
+    public ReportStatus Status { get; set; }
+    public string? ProcessingNote { get; set; }
+    public long ProcessorId { get; set; }
+    public string? ProcessorName { get; set; }
 }
 
-public class BlindRequest
+/// <summary>
+/// 신고 생성 API 요청
+/// </summary>
+public class CreateReportApiRequest
 {
-    public string TargetType { get; set; } = string.Empty; // "Post" or "Comment"
-    public int TargetId { get; set; }
+    public ReportTargetType TargetType { get; set; }
+    public long TargetId { get; set; }
+    public ReportReason Reason { get; set; }
+    public string? Description { get; set; }
+    public long ReporterId { get; set; }
+    public string? ReporterName { get; set; }
 }
 
-public class BatchDeleteRequest
+/// <summary>
+/// 블라인드 처리 API 요청
+/// </summary>
+public class BlindContentApiRequest
 {
-    public string TargetType { get; set; } = string.Empty; // "Post" or "Comment"
-    public List<int> Ids { get; set; } = new();
+    public BatchTargetType TargetType { get; set; }
+    public long TargetId { get; set; }
+    public bool IsBlinded { get; set; }
+    public string? Reason { get; set; }
 }
 
-public class CreateQuestionRequest
+/// <summary>
+/// 일괄 삭제 API 요청
+/// </summary>
+public class BatchDeleteApiRequest
+{
+    public BatchTargetType TargetType { get; set; }
+    public List<long> Ids { get; set; } = new();
+    public bool HardDelete { get; set; } = false;
+}
+
+/// <summary>
+/// 질문 생성 API 요청
+/// </summary>
+public class CreateQuestionApiRequest
 {
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public List<string>? Tags { get; set; }
+    public int BountyPoints { get; set; }
+    public long AuthorId { get; set; }
+    public string? AuthorName { get; set; }
 }
 
-public class UpdateQuestionRequest
+/// <summary>
+/// 질문 수정 API 요청
+/// </summary>
+public class UpdateQuestionApiRequest
 {
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public List<string>? Tags { get; set; }
+    public long UserId { get; set; }
 }
 
-public class CreateAnswerRequest
+/// <summary>
+/// 질문 사용자 요청 (종료/재개)
+/// </summary>
+public class QuestionUserRequest
+{
+    public long UserId { get; set; }
+}
+
+/// <summary>
+/// 투표 API 요청
+/// </summary>
+public class VoteApiRequest
+{
+    public long UserId { get; set; }
+    public VoteType VoteType { get; set; }
+}
+
+/// <summary>
+/// 답변 생성 API 요청
+/// </summary>
+public class CreateAnswerApiRequest
 {
     public string Content { get; set; } = string.Empty;
+    public long AuthorId { get; set; }
+    public string? AuthorName { get; set; }
 }
 
-public class UpdateAnswerRequest
+/// <summary>
+/// 답변 수정 API 요청
+/// </summary>
+public class UpdateAnswerApiRequest
 {
     public string Content { get; set; } = string.Empty;
+    public long UserId { get; set; }
 }
 
-public class VoteRequest
+/// <summary>
+/// 답변 채택 API 요청
+/// </summary>
+public class AcceptAnswerApiRequest
 {
-    public string VoteType { get; set; } = "up"; // "up" or "down"
+    public long QuestionAuthorId { get; set; }
+}
+
+/// <summary>
+/// 답변 채택 취소 API 요청
+/// </summary>
+public class UnacceptAnswerApiRequest
+{
+    public long QuestionAuthorId { get; set; }
 }
 
 #endregion
