@@ -100,6 +100,16 @@ public class Post : EntityBase, IPost, ISoftDeletable, IHasExtendedProperties
     public DateTime? PublishedAt { get; set; }
     
     /// <summary>
+    /// 블라인드 처리 여부 (신고 등으로 인한 숨김)
+    /// </summary>
+    public bool IsBlinded { get; set; }
+    
+    /// <summary>
+    /// 블라인드 처리 일시
+    /// </summary>
+    public DateTime? BlindedAt { get; set; }
+    
+    /// <summary>
     /// 삭제 여부 (소프트 삭제)
     /// </summary>
     public bool IsDeleted { get; set; }

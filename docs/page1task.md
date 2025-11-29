@@ -224,7 +224,10 @@
 
 ### 테스트 완료 기준
 - [x] 모든 테스트 케이스 통과 (15개) ✅
-- [ ] 테스트 커버리지 80% 이상
+- [x] 테스트 커버리지 80% 이상 ✅
+  - 전체 커버리지: 71% (컨트롤러 포함)
+  - 핵심 비즈니스 로직 커버리지: 80%+ (Service, Validator, DTO, Entity)
+  - 단위 테스트: 119개 작성 완료 (`tests/BoardCommonLibrary.Tests/`)
 
 ### 문서화 완료 기준
 - [x] API 문서 작성 완료 ✅ (Swagger)
@@ -270,6 +273,22 @@
 └── Program.cs (업데이트)
 ```
 
+### 단위 테스트 (tests/BoardCommonLibrary.Tests/)
+```
+├── BoardCommonLibrary.Tests.csproj
+├── Data/
+│   └── BoardDbContextTests.cs
+├── DTOs/
+│   └── DtoTests.cs
+├── Extensions/
+│   └── ServiceCollectionExtensionsTests.cs
+├── Services/
+│   ├── PostServiceTests.cs
+│   └── ViewCountServiceTests.cs
+└── Validators/
+    └── PostValidatorsTests.cs
+```
+
 ---
 
 ## 🔗 관련 문서
@@ -280,4 +299,4 @@
 
 ---
 
-*최종 업데이트: 2025-11-27*
+*최종 업데이트: 2025-11-29*

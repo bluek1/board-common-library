@@ -8,29 +8,36 @@ namespace BoardCommonLibrary.Controllers;
 
 /// <summary>
 /// 게시물 API 컨트롤러
+/// 상속하여 커스터마이징 가능합니다.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class PostsController : ControllerBase
 {
-    private readonly IPostService _postService;
-    private readonly IViewCountService _viewCountService;
-    private readonly IValidator<CreatePostRequest> _createValidator;
-    private readonly IValidator<UpdatePostRequest> _updateValidator;
-    private readonly IValidator<DraftPostRequest> _draftValidator;
+    protected readonly IPostService PostService;
+    protected readonly IViewCountService ViewCountService;
+    protected readonly ILikeService LikeService;
+    protected readonly IBookmarkService BookmarkService;
+    protected readonly IValidator<CreatePostRequest> CreateValidator;
+    protected readonly IValidator<UpdatePostRequest> UpdateValidator;
+    protected readonly IValidator<DraftPostRequest> DraftValidator;
     
     public PostsController(
         IPostService postService,
         IViewCountService viewCountService,
+        ILikeService likeService,
+        IBookmarkService bookmarkService,
         IValidator<CreatePostRequest> createValidator,
         IValidator<UpdatePostRequest> updateValidator,
         IValidator<DraftPostRequest> draftValidator)
     {
-        _postService = postService;
-        _viewCountService = viewCountService;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
-        _draftValidator = draftValidator;
+        PostService = postService;
+        ViewCountService = viewCountService;
+        LikeService = likeService;
+        BookmarkService = bookmarkService;
+        CreateValidator = createValidator;
+        UpdateValidator = updateValidator;
+        DraftValidator = draftValidator;
     }
     
     /// <summary>
@@ -42,10 +49,10 @@ public class PostsController : ControllerBase
     /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResponse<PostSummaryResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponse<PostSummaryResponse>>> GetAll(
+    public virtual async Task<ActionResult<PagedResponse<PostSummaryResponse>>> GetAll(
         [FromQuery] PostQueryParameters parameters)
     {
-        var result = await _postService.GetAllAsync(parameters);
+        var result = await PostService.GetAllAsync(parameters);
         return Ok(result);
     }
     
@@ -60,9 +67,9 @@ public class PostsController : ControllerBase
     [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<PostResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<PostResponse>>> GetById(long id)
+    public virtual async Task<ActionResult<ApiResponse<PostResponse>>> GetById(long id)
     {
-        var post = await _postService.GetByIdAsync(id);
+        var post = await PostService.GetByIdAsync(id);
         
         if (post == null)
         {
@@ -74,10 +81,10 @@ public class PostsController : ControllerBase
         // 조회수 증가
         var userId = GetCurrentUserId();
         var ipAddress = GetClientIpAddress();
-        await _viewCountService.IncrementViewCountAsync(id, userId, ipAddress);
+        await ViewCountService.IncrementViewCountAsync(id, userId, ipAddress);
         
         // 조회수 갱신
-        post.ViewCount = await _viewCountService.GetViewCountAsync(id);
+        post.ViewCount = await ViewCountService.GetViewCountAsync(id);
         
         return Ok(ApiResponse<PostResponse>.Ok(post));
     }
@@ -93,10 +100,10 @@ public class PostsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<PostResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<ApiResponse<PostResponse>>> Create([FromBody] CreatePostRequest request)
+    public virtual async Task<ActionResult<ApiResponse<PostResponse>>> Create([FromBody] CreatePostRequest request)
     {
         // 유효성 검증
-        var validationResult = await _createValidator.ValidateAsync(request);
+        var validationResult = await CreateValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors
@@ -118,7 +125,7 @@ public class PostsController : ControllerBase
         }
         
         var authorName = GetCurrentUserName();
-        var post = await _postService.CreateAsync(request, userId.Value, authorName);
+        var post = await PostService.CreateAsync(request, userId.Value, authorName);
         
         return CreatedAtAction(
             nameof(GetById), 
@@ -140,10 +147,10 @@ public class PostsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<PostResponse>>> Update(long id, [FromBody] UpdatePostRequest request)
+    public virtual async Task<ActionResult<ApiResponse<PostResponse>>> Update(long id, [FromBody] UpdatePostRequest request)
     {
         // 유효성 검증
-        var validationResult = await _updateValidator.ValidateAsync(request);
+        var validationResult = await UpdateValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors
@@ -165,7 +172,7 @@ public class PostsController : ControllerBase
         }
         
         // 게시물 존재 여부 확인
-        if (!await _postService.ExistsAsync(id))
+        if (!await PostService.ExistsAsync(id))
         {
             return NotFound(ApiErrorResponse.Create(
                 "POST_NOT_FOUND",
@@ -174,7 +181,7 @@ public class PostsController : ControllerBase
         
         // 권한 확인
         var isAdmin = IsCurrentUserAdmin();
-        var isAuthor = await _postService.IsAuthorAsync(id, userId.Value);
+        var isAuthor = await PostService.IsAuthorAsync(id, userId.Value);
         
         if (!isAuthor && !isAdmin)
         {
@@ -183,7 +190,7 @@ public class PostsController : ControllerBase
                 "게시물을 수정할 권한이 없습니다."));
         }
         
-        var post = await _postService.UpdateAsync(id, request, userId.Value, isAdmin);
+        var post = await PostService.UpdateAsync(id, request, userId.Value, isAdmin);
         
         return Ok(ApiResponse<PostResponse>.Ok(post!));
     }
@@ -200,7 +207,7 @@ public class PostsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> Delete(long id)
+    public virtual async Task<ActionResult> Delete(long id)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -211,7 +218,7 @@ public class PostsController : ControllerBase
         }
         
         // 게시물 존재 여부 확인
-        if (!await _postService.ExistsAsync(id))
+        if (!await PostService.ExistsAsync(id))
         {
             return NotFound(ApiErrorResponse.Create(
                 "POST_NOT_FOUND",
@@ -220,7 +227,7 @@ public class PostsController : ControllerBase
         
         // 권한 확인
         var isAdmin = IsCurrentUserAdmin();
-        var isAuthor = await _postService.IsAuthorAsync(id, userId.Value);
+        var isAuthor = await PostService.IsAuthorAsync(id, userId.Value);
         
         if (!isAuthor && !isAdmin)
         {
@@ -229,7 +236,7 @@ public class PostsController : ControllerBase
                 "게시물을 삭제할 권한이 없습니다."));
         }
         
-        await _postService.DeleteAsync(id, userId.Value, isAdmin);
+        await PostService.DeleteAsync(id, userId.Value, isAdmin);
         
         return NoContent();
     }
@@ -246,7 +253,7 @@ public class PostsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<PostResponse>>> Pin(long id)
+    public virtual async Task<ActionResult<ApiResponse<PostResponse>>> Pin(long id)
     {
         if (!IsCurrentUserAdmin())
         {
@@ -255,7 +262,7 @@ public class PostsController : ControllerBase
                 "관리자만 상단고정할 수 있습니다."));
         }
         
-        var post = await _postService.PinAsync(id);
+        var post = await PostService.PinAsync(id);
         
         if (post == null)
         {
@@ -279,7 +286,7 @@ public class PostsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<PostResponse>>> Unpin(long id)
+    public virtual async Task<ActionResult<ApiResponse<PostResponse>>> Unpin(long id)
     {
         if (!IsCurrentUserAdmin())
         {
@@ -288,7 +295,7 @@ public class PostsController : ControllerBase
                 "관리자만 상단고정을 해제할 수 있습니다."));
         }
         
-        var post = await _postService.UnpinAsync(id);
+        var post = await PostService.UnpinAsync(id);
         
         if (post == null)
         {
@@ -312,10 +319,10 @@ public class PostsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<DraftPostResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<ApiResponse<DraftPostResponse>>> SaveDraft([FromBody] DraftPostRequest request)
+    public virtual async Task<ActionResult<ApiResponse<DraftPostResponse>>> SaveDraft([FromBody] DraftPostRequest request)
     {
         // 유효성 검증
-        var validationResult = await _draftValidator.ValidateAsync(request);
+        var validationResult = await DraftValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors
@@ -337,7 +344,7 @@ public class PostsController : ControllerBase
         }
         
         var authorName = GetCurrentUserName();
-        var draft = await _postService.SaveDraftAsync(request, userId.Value, authorName);
+        var draft = await PostService.SaveDraftAsync(request, userId.Value, authorName);
         
         return Ok(ApiResponse<DraftPostResponse>.Ok(draft));
     }
@@ -351,7 +358,7 @@ public class PostsController : ControllerBase
     [HttpGet("draft")]
     [ProducesResponseType(typeof(PagedResponse<DraftPostResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<PagedResponse<DraftPostResponse>>> GetDrafts([FromQuery] PagedRequest parameters)
+    public virtual async Task<ActionResult<PagedResponse<DraftPostResponse>>> GetDrafts([FromQuery] PagedRequest parameters)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -361,7 +368,7 @@ public class PostsController : ControllerBase
                 "로그인이 필요합니다."));
         }
         
-        var drafts = await _postService.GetDraftsAsync(userId.Value, parameters);
+        var drafts = await PostService.GetDraftsAsync(userId.Value, parameters);
         
         return Ok(drafts);
     }
@@ -378,7 +385,7 @@ public class PostsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<PostResponse>>> PublishDraft(long id)
+    public virtual async Task<ActionResult<ApiResponse<PostResponse>>> PublishDraft(long id)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -388,7 +395,7 @@ public class PostsController : ControllerBase
                 "로그인이 필요합니다."));
         }
         
-        var post = await _postService.PublishAsync(id, userId.Value);
+        var post = await PostService.PublishAsync(id, userId.Value);
         
         if (post == null)
         {
@@ -400,12 +407,159 @@ public class PostsController : ControllerBase
         return Ok(ApiResponse<PostResponse>.Ok(post));
     }
     
+    #region 좋아요
+    
+    /// <summary>
+    /// 게시물 좋아요
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpPost("{id:long}/like")]
+    [ProducesResponseType(typeof(ApiResponse<LikeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public virtual async Task<ActionResult<ApiResponse<LikeResponse>>> LikePost(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        try
+        {
+            var result = await LikeService.LikePostAsync(id, userId.Value);
+            return Ok(ApiResponse<LikeResponse>.Ok(result));
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("찾을 수 없습니다"))
+            {
+                return NotFound(ApiErrorResponse.Create(
+                    "POST_NOT_FOUND",
+                    ex.Message));
+            }
+            
+            return Conflict(ApiErrorResponse.Create(
+                "ALREADY_LIKED",
+                ex.Message));
+        }
+    }
+    
+    /// <summary>
+    /// 게시물 좋아요 취소
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpDelete("{id:long}/like")]
+    [ProducesResponseType(typeof(ApiResponse<LikeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public virtual async Task<ActionResult<ApiResponse<LikeResponse>>> UnlikePost(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        var result = await LikeService.UnlikePostAsync(id, userId.Value);
+        
+        if (result == null)
+        {
+            return NotFound(ApiErrorResponse.Create(
+                "NOT_FOUND",
+                "좋아요하지 않은 게시물이거나 존재하지 않는 게시물입니다."));
+        }
+        
+        return Ok(ApiResponse<LikeResponse>.Ok(result));
+    }
+    
+    #endregion
+    
+    #region 북마크
+    
+    /// <summary>
+    /// 게시물 북마크
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpPost("{id:long}/bookmark")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public virtual async Task<ActionResult> AddBookmark(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        try
+        {
+            await BookmarkService.AddBookmarkAsync(id, userId.Value);
+            return Ok(ApiResponse<object>.Ok(new { message = "북마크가 추가되었습니다." }));
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("찾을 수 없습니다"))
+            {
+                return NotFound(ApiErrorResponse.Create(
+                    "POST_NOT_FOUND",
+                    ex.Message));
+            }
+            
+            return Conflict(ApiErrorResponse.Create(
+                "ALREADY_BOOKMARKED",
+                ex.Message));
+        }
+    }
+    
+    /// <summary>
+    /// 게시물 북마크 해제
+    /// </summary>
+    /// <param name="id">게시물 ID</param>
+    [HttpDelete("{id:long}/bookmark")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public virtual async Task<ActionResult> RemoveBookmark(long id)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized(ApiErrorResponse.Create(
+                "UNAUTHORIZED",
+                "로그인이 필요합니다."));
+        }
+        
+        var result = await BookmarkService.RemoveBookmarkAsync(id, userId.Value);
+        
+        if (!result)
+        {
+            return NotFound(ApiErrorResponse.Create(
+                "NOT_FOUND",
+                "북마크하지 않은 게시물입니다."));
+        }
+        
+        return Ok(ApiResponse<object>.Ok(new { message = "북마크가 해제되었습니다." }));
+    }
+    
+    #endregion
+    
     #region Helper Methods
     
     /// <summary>
     /// 현재 로그인한 사용자 ID 조회 (테스트용 헤더 또는 Claims에서)
+    /// 오버라이드하여 커스텀 인증 로직 구현 가능
     /// </summary>
-    private long? GetCurrentUserId()
+    protected virtual long? GetCurrentUserId()
     {
         // 테스트용: X-User-Id 헤더에서 조회
         if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && 
@@ -426,8 +580,9 @@ public class PostsController : ControllerBase
     
     /// <summary>
     /// 현재 로그인한 사용자명 조회
+    /// 오버라이드하여 커스텀 인증 로직 구현 가능
     /// </summary>
-    private string? GetCurrentUserName()
+    protected virtual string? GetCurrentUserName()
     {
         // 테스트용: X-User-Name 헤더에서 조회
         if (Request.Headers.TryGetValue("X-User-Name", out var userNameHeader))
@@ -440,8 +595,9 @@ public class PostsController : ControllerBase
     
     /// <summary>
     /// 현재 사용자가 관리자인지 확인
+    /// 오버라이드하여 커스텀 권한 로직 구현 가능
     /// </summary>
-    private bool IsCurrentUserAdmin()
+    protected virtual bool IsCurrentUserAdmin()
     {
         // 테스트용: X-User-Role 헤더에서 조회
         if (Request.Headers.TryGetValue("X-User-Role", out var roleHeader))
@@ -458,7 +614,7 @@ public class PostsController : ControllerBase
     /// <summary>
     /// 클라이언트 IP 주소 조회
     /// </summary>
-    private string? GetClientIpAddress()
+    protected virtual string? GetClientIpAddress()
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         

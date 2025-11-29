@@ -2,9 +2,16 @@
 
 범용 게시판 공통 라이브러리 - ASP.NET Core 기반의 재사용 가능한 게시판 API 라이브러리
 
+[![.NET](https://img.shields.io/badge/.NET-8.0+-512BD4?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square)]()
+
 ## 📋 개요
 
 **Board Common Library**는 다양한 프로젝트에서 쉽게 통합하여 사용할 수 있는 범용 게시판 기능을 제공하는 ASP.NET Core 기반 라이브러리입니다.
+
+> 🎉 **풀스택 데모 애플리케이션 제공**: React + ASP.NET Core로 구현된 데모 앱을 통해 라이브러리 사용법을 직접 체험해보세요!
 
 ## ✨ 주요 기능
 
@@ -15,6 +22,7 @@
 - **파일 첨부**: 파일 업로드/썸네일 생성, 업로드 제한(용량/확장자), CDN 연동
 - **댓글/대댓글**: 댓글 CRUD, 대댓글 지원
 - **사용자 활동**: 좋아요, 북마크, 신고/블라인드
+- **Q&A 게시판**: 질문/답변, 답변 채택, 추천 시스템
 
 ### 인증·권한·보안
 - **인증**: JWT/OAuth 기반 인증
@@ -37,16 +45,57 @@
 | **SQL Server / PostgreSQL / MySQL** | 데이터베이스 |
 | **Redis** | 캐싱 (선택적) |
 | **SignalR** | 실시간 알림 (선택적) |
+| **React 19** | 프론트엔드 (데모 앱) |
 
 ## 📖 문서
 
-- [제품 요구사항 문서 (PRD)](docs/PRD.md) - 상세 기능 명세 및 API 설계
-- [NuGet 배포 가이드](docs/NUGET.md) - 패키지 설치 및 배포 가이드
-- [페이지별 기능 명세](docs/PAGES.md) - 4페이지 구성 및 테스트 케이스
-- [테스트 가이드](docs/TESTING.md) - 테스트 웹서비스 사용 가이드
-- [페이지 1 작업 명세](docs/page1task.md) - 게시물 관리 상세 작업 명세
+### 사용자 가이드
+- [📘 데모 애플리케이션 가이드 (DEMO.md)](docs/DEMO.md) - **풀스택 데모 앱 실행 및 사용법** ⭐
+- [📗 사용 가이드 (USAGE.md)](docs/USAGE.md) - 시작하기, 설정 방법, 예제 코드
+- [📙 API 레퍼런스 (API-REFERENCE.md)](docs/API-REFERENCE.md) - 전체 API 엔드포인트 상세 문서
+
+### 개발 문서
+- [📊 개발 현황 (DEVELOPMENT-STATUS.md)](docs/DEVELOPMENT-STATUS.md) - 기능별 구현 상태 및 파일 목록
+- [📋 제품 요구사항 (PRD.md)](docs/PRD.md) - 상세 기능 명세 및 설계
+- [📄 페이지별 기능 명세 (PAGES.md)](docs/PAGES.md) - 4페이지 구성 및 테스트 케이스
+
+### 배포 및 테스트
+- [📦 NuGet 배포 가이드 (NUGET.md)](docs/NUGET.md) - 패키지 설치 및 배포
+- [🧪 테스트 가이드 (TESTING.md)](docs/TESTING.md) - 테스트 웹서비스 사용법
 
 ## 🚀 시작하기
+
+### 🎮 데모 애플리케이션 실행 (권장)
+
+라이브러리 사용법을 가장 빠르게 이해하는 방법은 데모 앱을 실행해보는 것입니다.
+
+```bash
+# 1. 백엔드 서버 실행 (터미널 1)
+cd demo/BoardDemo.Api
+dotnet run
+
+# 2. 프론트엔드 서버 실행 (터미널 2)
+cd demo/board-demo-frontend
+npm install
+npm run dev
+```
+
+#### 접속 URL
+| 구분 | URL | 설명 |
+|-----|-----|------|
+| **프론트엔드** | http://localhost:5173 | React 데모 앱 |
+| **백엔드 API** | http://localhost:5117/api | REST API |
+| **Swagger UI** | http://localhost:5117/swagger | API 문서 |
+
+#### 테스트 계정
+| 역할 | 이메일 | 비밀번호 | 권한 |
+|-----|-------|---------|------|
+| **관리자** | admin@test.com | Admin123! | 전체 관리 기능 |
+| **일반 사용자** | user1@test.com | User123! | 게시물/댓글 CRUD |
+
+> 📖 상세한 데모 앱 사용법은 [데모 애플리케이션 가이드](docs/DEMO.md)를 참조하세요.
+
+---
 
 ### NuGet 패키지 설치
 
@@ -230,9 +279,22 @@ curl -X POST http://localhost:5000/api/posts/1/publish \
   -H "X-User-Id: 1"
 ```
 
-## 🔐 인증 헤더
+## 🔐 인증 방식
 
-현재 버전에서는 간단한 헤더 기반 인증을 사용합니다:
+### JWT 인증 (데모 앱)
+데모 애플리케이션에서는 JWT Bearer 토큰 인증을 사용합니다:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+| 토큰 타입 | 유효 기간 | 용도 |
+|---------|----------|------|
+| Access Token | 60분 | API 요청 인증 |
+| Refresh Token | 7일 | 토큰 갱신 |
+
+### 헤더 기반 인증 (테스트 웹서비스)
+테스트 웹서비스에서는 간단한 헤더 기반 인증을 사용합니다:
 
 | 헤더 | 설명 | 필수 여부 |
 |-----|------|----------|
@@ -240,18 +302,52 @@ curl -X POST http://localhost:5000/api/posts/1/publish \
 | `X-User-Name` | 사용자명 | 게시물 작성 시 필수 |
 | `X-User-Role` | 사용자 역할 (Admin, Moderator, User) | 관리자 기능 시 필수 |
 
-## 📊 페이지 구성
+## 📊 개발 현황
 
-본 라이브러리는 4개의 페이지로 기능이 구성되어 있습니다:
+| 페이지 | 기능 | 상태 | 테스트 수 |
+|-------|------|------|----------|
+| **페이지 1** | 게시물 관리 (CRUD, 조회수, 상단고정, 임시저장) | ✅ 완료 | 88개 |
+| **페이지 2** | 댓글/대댓글, 좋아요, 북마크 | ✅ 완료 | 66개 |
+| **페이지 3** | 파일 업로드, 썸네일, 검색 | ✅ 완료 | 123개 |
+| **페이지 4** | 관리자 기능, Q&A 게시판 | ✅ 완료 | 103개 |
+| **합계** | - | **100%** | **380개** |
 
-| 페이지 | 기능 | 테스트 수 |
-|-------|------|----------|
-| **페이지 1** | 게시물 관리 (CRUD, 조회수, 상단고정, 임시저장) | 15개 |
-| **페이지 2** | 댓글/대댓글, 좋아요, 북마크 | 15개 |
-| **페이지 3** | 파일 업로드, 썸네일, 검색 | 15개 |
-| **페이지 4** | 관리자 기능, Q&A 게시판 | 15개 |
+### 데모 애플리케이션 시드 데이터
+
+| 데이터 | 수량 | 설명 |
+|-------|------|------|
+| 사용자 | 5명 | 관리자 1명 + 일반 사용자 4명 |
+| 게시물 | 50개 | 5개 카테고리 × 10개씩 |
+| 댓글 | 137개 | 게시물당 평균 2.7개 |
+| Q&A 질문 | 15개 | Open/Answered/Closed 상태 |
+| Q&A 답변 | 35개 | 질문당 평균 2.3개 |
 
 각 페이지별 상세 기능과 테스트 케이스는 [페이지별 기능 명세](docs/PAGES.md)를 참조하세요.
+
+## 🏗️ 프로젝트 구조
+
+```
+board-common-library/
+├── src/
+│   └── BoardCommonLibrary/          # 메인 라이브러리
+│       ├── Entities/                # 엔티티 클래스
+│       ├── Services/                # 비즈니스 로직
+│       ├── Interfaces/              # 인터페이스 정의
+│       ├── DTOs/                    # 데이터 전송 객체
+│       └── Extensions/              # 확장 메서드
+├── demo/
+│   ├── BoardDemo.Api/               # 백엔드 API (ASP.NET Core)
+│   │   ├── Controllers/             # API 컨트롤러
+│   │   ├── Data/                    # DbContext, 시드 데이터
+│   │   └── Auth/                    # JWT 인증
+│   └── board-demo-frontend/         # 프론트엔드 (React)
+│       ├── src/api/                 # API 클라이언트
+│       ├── src/components/          # React 컴포넌트
+│       └── src/pages/               # 페이지 컴포넌트
+├── test-web/
+│   └── BoardTestWeb/                # 테스트 웹서비스
+└── docs/                            # 문서
+```
 
 ## 📄 라이선스
 
