@@ -8,19 +8,20 @@ namespace BoardCommonLibrary.Controllers;
 
 /// <summary>
 /// 파일 관리 API 컨트롤러
+/// 상속하여 커스터마이징 가능합니다.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class FilesController : ControllerBase
 {
-    private readonly IFileService _fileService;
+    protected readonly IFileService FileService;
     
     /// <summary>
     /// 파일 컨트롤러 생성자
     /// </summary>
     public FilesController(IFileService fileService)
     {
-        _fileService = fileService;
+        FileService = fileService;
     }
     
     /// <summary>
@@ -35,7 +36,7 @@ public class FilesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType(StatusCodes.Status415UnsupportedMediaType)]
-    public async Task<IActionResult> Upload(IFormFile file, [FromQuery] long? postId = null)
+    public virtual async Task<IActionResult> Upload(IFormFile file, [FromQuery] long? postId = null)
     {
         if (file == null || file.Length == 0)
         {
@@ -47,7 +48,7 @@ public class FilesController : ControllerBase
         
         try
         {
-            var result = await _fileService.UploadAsync(file, userId, userName, postId);
+            var result = await FileService.UploadAsync(file, userId, userName, postId);
             
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, new FileUploadResponse
             {
@@ -77,7 +78,7 @@ public class FilesController : ControllerBase
     [Authorize]
     [ProducesResponseType(typeof(MultipleFileUploadResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UploadMultiple(List<IFormFile> files, [FromQuery] long? postId = null)
+    public virtual async Task<IActionResult> UploadMultiple(List<IFormFile> files, [FromQuery] long? postId = null)
     {
         if (files == null || files.Count == 0)
         {
@@ -87,7 +88,7 @@ public class FilesController : ControllerBase
         var userId = GetCurrentUserId();
         var userName = GetCurrentUserName();
         
-        var result = await _fileService.UploadMultipleAsync(files, userId, userName, postId);
+        var result = await FileService.UploadMultipleAsync(files, userId, userName, postId);
         
         if (result.SuccessCount == 0)
         {
@@ -105,9 +106,9 @@ public class FilesController : ControllerBase
     [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(FileInfoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(long id)
+    public virtual async Task<IActionResult> GetById(long id)
     {
-        var file = await _fileService.GetByIdAsync(id);
+        var file = await FileService.GetByIdAsync(id);
         
         if (file == null)
         {
@@ -125,9 +126,9 @@ public class FilesController : ControllerBase
     [HttpGet("{id:long}/download")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Download(long id)
+    public virtual async Task<IActionResult> Download(long id)
     {
-        var download = await _fileService.DownloadAsync(id);
+        var download = await FileService.DownloadAsync(id);
         
         if (download == null)
         {
@@ -145,9 +146,9 @@ public class FilesController : ControllerBase
     [HttpGet("{id:long}/thumbnail")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetThumbnail(long id)
+    public virtual async Task<IActionResult> GetThumbnail(long id)
     {
-        var thumbnail = await _fileService.GetThumbnailAsync(id);
+        var thumbnail = await FileService.GetThumbnailAsync(id);
         
         if (thumbnail == null)
         {
@@ -167,14 +168,14 @@ public class FilesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(long id)
+    public virtual async Task<IActionResult> Delete(long id)
     {
         var userId = GetCurrentUserId();
-        var result = await _fileService.DeleteAsync(id, userId);
+        var result = await FileService.DeleteAsync(id, userId);
         
         if (!result)
         {
-            var exists = await _fileService.ExistsAsync(id);
+            var exists = await FileService.ExistsAsync(id);
             if (!exists)
             {
                 return NotFound(new { message = "파일을 찾을 수 없습니다." });
@@ -193,9 +194,9 @@ public class FilesController : ControllerBase
     /// <returns>파일 목록</returns>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResponse<FileInfoResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll([FromQuery] FileQueryParameters parameters)
+    public virtual async Task<IActionResult> GetAll([FromQuery] FileQueryParameters parameters)
     {
-        var result = await _fileService.GetAllAsync(parameters);
+        var result = await FileService.GetAllAsync(parameters);
         return Ok(result);
     }
     
@@ -206,9 +207,9 @@ public class FilesController : ControllerBase
     /// <returns>첨부파일 목록</returns>
     [HttpGet("post/{postId:long}")]
     [ProducesResponseType(typeof(List<FileInfoResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetByPost(long postId)
+    public virtual async Task<IActionResult> GetByPost(long postId)
     {
-        var files = await _fileService.GetByPostIdAsync(postId);
+        var files = await FileService.GetByPostIdAsync(postId);
         return Ok(files);
     }
     
@@ -220,10 +221,10 @@ public class FilesController : ControllerBase
     [HttpGet("my")]
     [Authorize]
     [ProducesResponseType(typeof(PagedResponse<FileInfoResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMyFiles([FromQuery] FileQueryParameters parameters)
+    public virtual async Task<IActionResult> GetMyFiles([FromQuery] FileQueryParameters parameters)
     {
         var userId = GetCurrentUserId();
-        var result = await _fileService.GetByUploaderAsync(userId, parameters);
+        var result = await FileService.GetByUploaderAsync(userId, parameters);
         return Ok(result);
     }
     
@@ -236,12 +237,12 @@ public class FilesController : ControllerBase
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> AttachToPost([FromBody] AttachFileToPostRequest request)
+    public virtual async Task<IActionResult> AttachToPost([FromBody] AttachFileToPostRequest request)
     {
         var successCount = 0;
         foreach (var fileId in request.FileIds)
         {
-            if (await _fileService.AttachToPostAsync(fileId, request.PostId))
+            if (await FileService.AttachToPostAsync(fileId, request.PostId))
             {
                 successCount++;
             }
@@ -259,9 +260,9 @@ public class FilesController : ControllerBase
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DetachFromPost(long id)
+    public virtual async Task<IActionResult> DetachFromPost(long id)
     {
-        var result = await _fileService.DetachFromPostAsync(id);
+        var result = await FileService.DetachFromPostAsync(id);
         
         if (!result)
         {
@@ -274,12 +275,18 @@ public class FilesController : ControllerBase
     /// <summary>
     /// 현재 사용자 ID 가져오기
     /// </summary>
-    private long GetCurrentUserId()
+    protected virtual long GetCurrentUserId()
     {
-        var userIdClaim = User.FindFirst("sub") ?? User.FindFirst("userId");
-        if (userIdClaim != null && long.TryParse(userIdClaim.Value, out var userId))
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && 
+            long.TryParse(userIdHeader, out var userId))
         {
             return userId;
+        }
+        
+        var userIdClaim = User.FindFirst("sub") ?? User.FindFirst("userId");
+        if (userIdClaim != null && long.TryParse(userIdClaim.Value, out var claimUserId))
+        {
+            return claimUserId;
         }
         
         return 0;
@@ -288,8 +295,13 @@ public class FilesController : ControllerBase
     /// <summary>
     /// 현재 사용자 이름 가져오기
     /// </summary>
-    private string GetCurrentUserName()
+    protected virtual string GetCurrentUserName()
     {
+        if (Request.Headers.TryGetValue("X-User-Name", out var userNameHeader))
+        {
+            return userNameHeader!;
+        }
+        
         var nameClaim = User.FindFirst("name") ?? User.FindFirst("userName");
         return nameClaim?.Value ?? "Unknown";
     }

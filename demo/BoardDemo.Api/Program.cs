@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using BoardCommonLibrary.Configuration;
 using BoardCommonLibrary.Data;
 using BoardCommonLibrary.Extensions;
+using BoardCommonLibrary.Interfaces;
 using BoardDemo.Api.Data;
 using BoardDemo.Api.Services;
 
@@ -18,6 +20,35 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddDbContext<BoardDbContext>(options =>
     options.UseInMemoryDatabase("BoardDemoDb"));
 
+// ============================================================
+// 커스텀 서비스 등록 (BoardCommonLibrary 서비스보다 먼저 등록해야 함!)
+// TryAddScoped 때문에 먼저 등록된 서비스가 우선됨
+// ============================================================
+builder.Services.AddCustomPostService<CustomPostService>();
+
+// API 경로 옵션 설정 (커스터마이징 예시)
+// 기본값으로 설정 - 커스터마이징 필요시 아래 주석 참고
+var apiRouteOptions = new ApiRouteOptions
+{
+    Prefix = "api",           // 기본값: "api"
+    Posts = "posts",          // /api/posts (기본값)
+    Comments = "comments",    // /api/comments (기본값)
+    Files = "files",          // /api/files (기본값)
+    Search = "search",        // /api/search (기본값)
+    Users = "users",          // /api/users (기본값)
+    Questions = "questions",  // /api/questions (기본값)
+    Answers = "answers",      // /api/answers (기본값)
+    Reports = "reports",      // /api/reports (기본값)
+    Admin = "admin"           // /api/admin (기본값)
+    
+    // 커스터마이징 예시:
+    // Prefix = "api/v1",     // -> /api/v1/posts
+    // Posts = "articles",    // -> /api/articles  
+    // Comments = "replies",  // -> /api/replies
+    // Questions = "qna",     // -> /api/qna
+    // Admin = "management",  // -> /api/management
+};
+
 // BoardCommonLibrary 서비스 등록 (DbContext는 위에서 따로 등록했으므로 ConnectionString 없이)
 builder.Services.AddBoardLibrary(options =>
 {
@@ -26,6 +57,9 @@ builder.Services.AddBoardLibrary(options =>
     options.FileUpload.MaxFileSize = 10 * 1024 * 1024; // 10MB
     options.FileUpload.AllowedExtensions = new List<string> { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx", ".xls", ".xlsx" };
     options.FileUpload.ApiBaseUrl = "/api/files";
+    
+    // API 경로 설정
+    options.Routes = apiRouteOptions;
 });
 
 // JWT 인증 설정
@@ -69,7 +103,11 @@ builder.Services.AddCors(options =>
 });
 
 // 컨트롤러 및 Swagger 설정
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    // 게시판 라이브러리 API 경로 컨벤션 적용
+    options.UseBoardLibraryRoutes(apiRouteOptions);
+})
     .AddApplicationPart(typeof(BoardCommonLibrary.Controllers.PostsController).Assembly); // BoardCommonLibrary 컨트롤러 등록
     
 builder.Services.AddEndpointsApiExplorer();

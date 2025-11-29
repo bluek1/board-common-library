@@ -171,9 +171,9 @@ public class ServiceCollectionExtensionsTests
         options.ConnectionString.Should().BeNull();
         options.UseInMemoryDatabase.Should().BeFalse();
         options.InMemoryDatabaseName.Should().BeNull();
-        options.ApiPrefix.Should().Be("/api");
-        options.ApiVersion.Should().Be("v1");
-        options.IncludeVersionInUrl.Should().BeFalse();
+        options.Routes.Prefix.Should().Be("api");
+        options.Routes.Posts.Should().Be("posts");
+        options.Routes.Comments.Should().Be("comments");
     }
 
     [Fact]
@@ -186,17 +186,17 @@ public class ServiceCollectionExtensionsTests
         options.ConnectionString = "Server=test;Database=test;";
         options.UseInMemoryDatabase = true;
         options.InMemoryDatabaseName = "TestDb";
-        options.ApiPrefix = "/custom-api";
-        options.ApiVersion = "v2";
-        options.IncludeVersionInUrl = true;
+        options.Routes.Prefix = "custom-api/v2";
+        options.Routes.Posts = "articles";
+        options.Routes.Comments = "replies";
 
         // Assert
         options.ConnectionString.Should().Be("Server=test;Database=test;");
         options.UseInMemoryDatabase.Should().BeTrue();
         options.InMemoryDatabaseName.Should().Be("TestDb");
-        options.ApiPrefix.Should().Be("/custom-api");
-        options.ApiVersion.Should().Be("v2");
-        options.IncludeVersionInUrl.Should().BeTrue();
+        options.Routes.Prefix.Should().Be("custom-api/v2");
+        options.Routes.Posts.Should().Be("articles");
+        options.Routes.Comments.Should().Be("replies");
     }
 
     #endregion

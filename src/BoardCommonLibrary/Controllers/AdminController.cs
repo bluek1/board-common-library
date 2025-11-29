@@ -8,23 +8,24 @@ namespace BoardCommonLibrary.Controllers;
 
 /// <summary>
 /// 관리자 API 컨트롤러
+/// 상속하여 커스터마이징 가능합니다.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class AdminController : ControllerBase
 {
-    private readonly IAdminService _adminService;
-    private readonly IReportService _reportService;
-    private readonly IValidator<ProcessReportRequest> _processReportValidator;
+    protected readonly IAdminService AdminService;
+    protected readonly IReportService ReportService;
+    protected readonly IValidator<ProcessReportRequest> ProcessReportValidator;
     
     public AdminController(
         IAdminService adminService,
         IReportService reportService,
         IValidator<ProcessReportRequest> processReportValidator)
     {
-        _adminService = adminService;
-        _reportService = reportService;
-        _processReportValidator = processReportValidator;
+        AdminService = adminService;
+        ReportService = reportService;
+        ProcessReportValidator = processReportValidator;
     }
     
     /// <summary>
@@ -35,10 +36,10 @@ public class AdminController : ControllerBase
     /// </remarks>
     [HttpGet("posts")]
     [ProducesResponseType(typeof(PagedResponse<PostResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponse<PostResponse>>> GetAllPosts(
+    public virtual async Task<ActionResult<PagedResponse<PostResponse>>> GetAllPosts(
         [FromQuery] AdminPostQueryParameters parameters)
     {
-        var result = await _adminService.GetAllPostsAsync(parameters);
+        var result = await AdminService.GetAllPostsAsync(parameters);
         return Ok(result);
     }
     
@@ -50,10 +51,10 @@ public class AdminController : ControllerBase
     /// </remarks>
     [HttpGet("comments")]
     [ProducesResponseType(typeof(PagedResponse<CommentResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponse<CommentResponse>>> GetAllComments(
+    public virtual async Task<ActionResult<PagedResponse<CommentResponse>>> GetAllComments(
         [FromQuery] AdminCommentQueryParameters parameters)
     {
-        var result = await _adminService.GetAllCommentsAsync(parameters);
+        var result = await AdminService.GetAllCommentsAsync(parameters);
         return Ok(result);
     }
     
@@ -62,10 +63,10 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpGet("reports")]
     [ProducesResponseType(typeof(PagedResponse<ReportResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponse<ReportResponse>>> GetReports(
+    public virtual async Task<ActionResult<PagedResponse<ReportResponse>>> GetReports(
         [FromQuery] ReportQueryParameters parameters)
     {
-        var result = await _reportService.GetAllAsync(parameters);
+        var result = await ReportService.GetAllAsync(parameters);
         return Ok(result);
     }
     
@@ -76,9 +77,9 @@ public class AdminController : ControllerBase
     [HttpGet("reports/{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<ReportResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<ReportResponse>>> GetReportById(long id)
+    public virtual async Task<ActionResult<ApiResponse<ReportResponse>>> GetReportById(long id)
     {
-        var report = await _reportService.GetByIdAsync(id);
+        var report = await ReportService.GetByIdAsync(id);
         
         if (report == null)
         {
@@ -101,13 +102,13 @@ public class AdminController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<ReportResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<ReportResponse>>> ProcessReport(
+    public virtual async Task<ActionResult<ApiResponse<ReportResponse>>> ProcessReport(
         long id,
         [FromBody] ProcessReportRequest request,
         [FromQuery] long processedById,
         [FromQuery] string processedByName = "Admin")
     {
-        var validationResult = await _processReportValidator.ValidateAsync(request);
+        var validationResult = await ProcessReportValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             return BadRequest(ApiErrorResponse.Create(
@@ -120,7 +121,7 @@ public class AdminController : ControllerBase
                 }).ToList()));
         }
         
-        var report = await _reportService.GetByIdAsync(id);
+        var report = await ReportService.GetByIdAsync(id);
         if (report == null)
         {
             return NotFound(ApiErrorResponse.Create(
@@ -128,7 +129,7 @@ public class AdminController : ControllerBase
                 "신고 내역을 찾을 수 없습니다."));
         }
         
-        var processedReport = await _reportService.ProcessAsync(id, request, processedById, processedByName);
+        var processedReport = await ReportService.ProcessAsync(id, request, processedById, processedByName);
         
         return Ok(ApiResponse<ReportResponse>.Ok(processedReport));
     }
@@ -141,7 +142,7 @@ public class AdminController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<object>>> BlindContent(
+    public virtual async Task<ActionResult<ApiResponse<object>>> BlindContent(
         [FromBody] BlindContentRequest request)
     {
         if (request.TargetType != BatchTargetType.Post && request.TargetType != BatchTargetType.Comment)
@@ -151,7 +152,7 @@ public class AdminController : ControllerBase
                 "게시물 또는 댓글만 블라인드 처리할 수 있습니다."));
         }
         
-        var result = await _adminService.BlindContentAsync(request);
+        var result = await AdminService.BlindContentAsync(request);
         
         if (!result)
         {
@@ -170,7 +171,7 @@ public class AdminController : ControllerBase
     [HttpPost("batch/delete")]
     [ProducesResponseType(typeof(ApiResponse<BatchDeleteResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ApiResponse<BatchDeleteResponse>>> BatchDelete(
+    public virtual async Task<ActionResult<ApiResponse<BatchDeleteResponse>>> BatchDelete(
         [FromBody] BatchDeleteRequest request)
     {
         if (request.Ids == null || !request.Ids.Any())
@@ -180,7 +181,7 @@ public class AdminController : ControllerBase
                 "삭제할 대상을 선택해주세요."));
         }
         
-        var result = await _adminService.BatchDeleteAsync(request);
+        var result = await AdminService.BatchDeleteAsync(request);
         
         return Ok(ApiResponse<BatchDeleteResponse>.Ok(result));
     }
@@ -190,9 +191,9 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpGet("statistics")]
     [ProducesResponseType(typeof(ApiResponse<BoardStatisticsResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<BoardStatisticsResponse>>> GetStatistics()
+    public virtual async Task<ActionResult<ApiResponse<BoardStatisticsResponse>>> GetStatistics()
     {
-        var statistics = await _adminService.GetStatisticsAsync();
+        var statistics = await AdminService.GetStatisticsAsync();
         
         return Ok(ApiResponse<BoardStatisticsResponse>.Ok(statistics));
     }
@@ -202,9 +203,9 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpGet("reports/pending/count")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<object>>> GetPendingReportCount()
+    public virtual async Task<ActionResult<ApiResponse<object>>> GetPendingReportCount()
     {
-        var count = await _reportService.GetPendingCountAsync();
+        var count = await ReportService.GetPendingCountAsync();
         return Ok(ApiResponse<object>.Ok(new { pendingCount = count }));
     }
 }

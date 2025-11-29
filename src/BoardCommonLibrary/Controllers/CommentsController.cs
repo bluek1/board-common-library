@@ -8,15 +8,16 @@ namespace BoardCommonLibrary.Controllers;
 
 /// <summary>
 /// 댓글 API 컨트롤러
+/// 상속하여 커스터마이징 가능합니다.
 /// </summary>
 [ApiController]
 [Route("api")]
 public class CommentsController : ControllerBase
 {
-    private readonly ICommentService _commentService;
-    private readonly ILikeService _likeService;
-    private readonly IValidator<CreateCommentRequest> _createValidator;
-    private readonly IValidator<UpdateCommentRequest> _updateValidator;
+    protected readonly ICommentService CommentService;
+    protected readonly ILikeService LikeService;
+    protected readonly IValidator<CreateCommentRequest> CreateValidator;
+    protected readonly IValidator<UpdateCommentRequest> UpdateValidator;
     
     public CommentsController(
         ICommentService commentService,
@@ -24,10 +25,10 @@ public class CommentsController : ControllerBase
         IValidator<CreateCommentRequest> createValidator,
         IValidator<UpdateCommentRequest> updateValidator)
     {
-        _commentService = commentService;
-        _likeService = likeService;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
+        CommentService = commentService;
+        LikeService = likeService;
+        CreateValidator = createValidator;
+        UpdateValidator = updateValidator;
     }
     
     #region 댓글 CRUD
@@ -42,11 +43,11 @@ public class CommentsController : ControllerBase
     /// <param name="parameters">쿼리 파라미터</param>
     [HttpGet("posts/{postId:long}/comments")]
     [ProducesResponseType(typeof(PagedResponse<CommentResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponse<CommentResponse>>> GetByPostId(
+    public virtual async Task<ActionResult<PagedResponse<CommentResponse>>> GetByPostId(
         long postId, 
         [FromQuery] CommentQueryParameters parameters)
     {
-        var result = await _commentService.GetByPostIdAsync(postId, parameters);
+        var result = await CommentService.GetByPostIdAsync(postId, parameters);
         return Ok(result);
     }
     
@@ -63,12 +64,12 @@ public class CommentsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<CommentResponse>>> Create(
+    public virtual async Task<ActionResult<ApiResponse<CommentResponse>>> Create(
         long postId, 
         [FromBody] CreateCommentRequest request)
     {
         // 유효성 검증
-        var validationResult = await _createValidator.ValidateAsync(request);
+        var validationResult = await CreateValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors
@@ -92,7 +93,7 @@ public class CommentsController : ControllerBase
         try
         {
             var authorName = GetCurrentUserName();
-            var comment = await _commentService.CreateAsync(postId, request, userId.Value, authorName);
+            var comment = await CommentService.CreateAsync(postId, request, userId.Value, authorName);
             
             return CreatedAtAction(
                 nameof(GetById),
@@ -114,9 +115,9 @@ public class CommentsController : ControllerBase
     [HttpGet("comments/{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<CommentResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<CommentResponse>>> GetById(long id)
+    public virtual async Task<ActionResult<ApiResponse<CommentResponse>>> GetById(long id)
     {
-        var comment = await _commentService.GetByIdAsync(id);
+        var comment = await CommentService.GetByIdAsync(id);
         
         if (comment == null)
         {
@@ -142,12 +143,12 @@ public class CommentsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<CommentResponse>>> Update(
+    public virtual async Task<ActionResult<ApiResponse<CommentResponse>>> Update(
         long id, 
         [FromBody] UpdateCommentRequest request)
     {
         // 유효성 검증
-        var validationResult = await _updateValidator.ValidateAsync(request);
+        var validationResult = await UpdateValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors
@@ -170,7 +171,7 @@ public class CommentsController : ControllerBase
         
         try
         {
-            var comment = await _commentService.UpdateAsync(id, request, userId.Value);
+            var comment = await CommentService.UpdateAsync(id, request, userId.Value);
             
             if (comment == null)
             {
@@ -202,7 +203,7 @@ public class CommentsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> Delete(long id)
+    public virtual async Task<ActionResult> Delete(long id)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -215,7 +216,7 @@ public class CommentsController : ControllerBase
         try
         {
             var isAdmin = IsCurrentUserAdmin();
-            var result = await _commentService.DeleteAsync(id, userId.Value, isAdmin);
+            var result = await CommentService.DeleteAsync(id, userId.Value, isAdmin);
             
             if (!result)
             {
@@ -251,12 +252,12 @@ public class CommentsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<CommentResponse>>> CreateReply(
+    public virtual async Task<ActionResult<ApiResponse<CommentResponse>>> CreateReply(
         long id, 
         [FromBody] CreateCommentRequest request)
     {
         // 유효성 검증
-        var validationResult = await _createValidator.ValidateAsync(request);
+        var validationResult = await CreateValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors
@@ -280,7 +281,7 @@ public class CommentsController : ControllerBase
         try
         {
             var authorName = GetCurrentUserName();
-            var reply = await _commentService.CreateReplyAsync(id, request, userId.Value, authorName);
+            var reply = await CommentService.CreateReplyAsync(id, request, userId.Value, authorName);
             
             if (reply == null)
             {
@@ -315,7 +316,7 @@ public class CommentsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<ApiResponse<LikeResponse>>> LikeComment(long id)
+    public virtual async Task<ActionResult<ApiResponse<LikeResponse>>> LikeComment(long id)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -327,7 +328,7 @@ public class CommentsController : ControllerBase
         
         try
         {
-            var result = await _likeService.LikeCommentAsync(id, userId.Value);
+            var result = await LikeService.LikeCommentAsync(id, userId.Value);
             return Ok(ApiResponse<LikeResponse>.Ok(result));
         }
         catch (InvalidOperationException ex)
@@ -353,7 +354,7 @@ public class CommentsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<LikeResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<LikeResponse>>> UnlikeComment(long id)
+    public virtual async Task<ActionResult<ApiResponse<LikeResponse>>> UnlikeComment(long id)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -363,7 +364,7 @@ public class CommentsController : ControllerBase
                 "로그인이 필요합니다."));
         }
         
-        var result = await _likeService.UnlikeCommentAsync(id, userId.Value);
+        var result = await LikeService.UnlikeCommentAsync(id, userId.Value);
         
         if (result == null)
         {
@@ -379,7 +380,7 @@ public class CommentsController : ControllerBase
     
     #region Helper Methods
     
-    private long? GetCurrentUserId()
+    protected virtual long? GetCurrentUserId()
     {
         if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && 
             long.TryParse(userIdHeader, out var userId))
@@ -389,7 +390,7 @@ public class CommentsController : ControllerBase
         return null;
     }
     
-    private string? GetCurrentUserName()
+    protected virtual string? GetCurrentUserName()
     {
         if (Request.Headers.TryGetValue("X-User-Name", out var userNameHeader))
         {
@@ -398,7 +399,7 @@ public class CommentsController : ControllerBase
         return null;
     }
     
-    private bool IsCurrentUserAdmin()
+    protected virtual bool IsCurrentUserAdmin()
     {
         if (Request.Headers.TryGetValue("X-User-Role", out var roleHeader))
         {

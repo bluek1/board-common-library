@@ -1,17 +1,43 @@
 import api from './client';
 import { Post, CreatePostRequest, UpdatePostRequest, PagedResult, QueryParams } from '../types';
 
+// API 응답 래퍼 타입
+interface ApiPagedResponse<T> {
+  success: boolean;
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+  };
+}
+
+interface ApiSingleResponse<T> {
+  success: boolean;
+  data: T;
+}
+
 export const postsApi = {
   // 게시물 목록 조회
   getAll: async (params?: QueryParams): Promise<PagedResult<Post>> => {
-    const response = await api.get<PagedResult<Post>>('/posts', { params });
-    return response.data;
+    const response = await api.get<ApiPagedResponse<Post>>('/posts', { params });
+    const { data, meta } = response.data;
+    return {
+      items: data || [],
+      page: meta.page,
+      pageSize: meta.pageSize,
+      totalCount: meta.totalCount,
+      totalPages: meta.totalPages,
+    };
   },
 
   // 게시물 상세 조회
   getById: async (id: number): Promise<Post> => {
-    const response = await api.get<Post>(`/posts/${id}`);
-    return response.data;
+    const response = await api.get<ApiSingleResponse<Post>>(`/posts/${id}`);
+    return response.data.data;
   },
 
   // 게시물 작성

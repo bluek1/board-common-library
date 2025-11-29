@@ -9,23 +9,24 @@ namespace BoardCommonLibrary.Controllers;
 
 /// <summary>
 /// Q&A 질문 API 컨트롤러
+/// 상속하여 커스터마이징 가능합니다.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class QuestionsController : ControllerBase
 {
-    private readonly IQuestionService _questionService;
-    private readonly IValidator<CreateQuestionRequest> _createValidator;
-    private readonly IValidator<UpdateQuestionRequest> _updateValidator;
+    protected readonly IQuestionService QuestionService;
+    protected readonly IValidator<CreateQuestionRequest> CreateValidator;
+    protected readonly IValidator<UpdateQuestionRequest> UpdateValidator;
     
     public QuestionsController(
         IQuestionService questionService,
         IValidator<CreateQuestionRequest> createValidator,
         IValidator<UpdateQuestionRequest> updateValidator)
     {
-        _questionService = questionService;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
+        QuestionService = questionService;
+        CreateValidator = createValidator;
+        UpdateValidator = updateValidator;
     }
     
     /// <summary>
@@ -33,10 +34,10 @@ public class QuestionsController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResponse<QuestionResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResponse<QuestionResponse>>> GetAll(
+    public virtual async Task<ActionResult<PagedResponse<QuestionResponse>>> GetAll(
         [FromQuery] QuestionQueryParameters parameters)
     {
-        var result = await _questionService.GetAllAsync(parameters);
+        var result = await QuestionService.GetAllAsync(parameters);
         return Ok(result);
     }
     
@@ -48,11 +49,11 @@ public class QuestionsController : ControllerBase
     [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<QuestionDetailResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<QuestionDetailResponse>>> GetById(
+    public virtual async Task<ActionResult<ApiResponse<QuestionDetailResponse>>> GetById(
         long id,
         [FromQuery] long? currentUserId = null)
     {
-        var question = await _questionService.GetByIdAsync(id, currentUserId);
+        var question = await QuestionService.GetByIdAsync(id, currentUserId);
         
         if (question == null)
         {
@@ -62,7 +63,7 @@ public class QuestionsController : ControllerBase
         }
         
         // 조회수 증가
-        await _questionService.IncrementViewCountAsync(id);
+        await QuestionService.IncrementViewCountAsync(id);
         
         return Ok(ApiResponse<QuestionDetailResponse>.Ok(question));
     }
@@ -76,12 +77,12 @@ public class QuestionsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<QuestionResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ApiResponse<QuestionResponse>>> Create(
+    public virtual async Task<ActionResult<ApiResponse<QuestionResponse>>> Create(
         [FromBody] CreateQuestionRequest request,
         [FromQuery] long authorId,
         [FromQuery] string authorName = "Anonymous")
     {
-        var validationResult = await _createValidator.ValidateAsync(request);
+        var validationResult = await CreateValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             return BadRequest(ApiErrorResponse.Create(
@@ -94,7 +95,7 @@ public class QuestionsController : ControllerBase
                 }).ToList()));
         }
         
-        var question = await _questionService.CreateAsync(request, authorId, authorName);
+        var question = await QuestionService.CreateAsync(request, authorId, authorName);
         
         return CreatedAtAction(
             nameof(GetById),
@@ -113,12 +114,12 @@ public class QuestionsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<QuestionResponse>>> Update(
+    public virtual async Task<ActionResult<ApiResponse<QuestionResponse>>> Update(
         long id,
         [FromBody] UpdateQuestionRequest request,
         [FromQuery] long userId)
     {
-        var validationResult = await _updateValidator.ValidateAsync(request);
+        var validationResult = await UpdateValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
             return BadRequest(ApiErrorResponse.Create(
@@ -132,14 +133,14 @@ public class QuestionsController : ControllerBase
         }
         
         // 권한 확인
-        if (!await _questionService.IsAuthorAsync(id, userId))
+        if (!await QuestionService.IsAuthorAsync(id, userId))
         {
             return StatusCode(StatusCodes.Status403Forbidden, ApiErrorResponse.Create(
                 "FORBIDDEN",
                 "본인의 질문만 수정할 수 있습니다."));
         }
         
-        var updatedQuestion = await _questionService.UpdateAsync(id, request, userId);
+        var updatedQuestion = await QuestionService.UpdateAsync(id, request, userId);
         
         return Ok(ApiResponse<QuestionResponse>.Ok(updatedQuestion));
     }
@@ -154,9 +155,9 @@ public class QuestionsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult> Delete(long id, [FromQuery] long userId)
+    public virtual async Task<ActionResult> Delete(long id, [FromQuery] long userId)
     {
-        if (!await _questionService.ExistsAsync(id))
+        if (!await QuestionService.ExistsAsync(id))
         {
             return NotFound(ApiErrorResponse.Create(
                 "QUESTION_NOT_FOUND",
@@ -164,14 +165,14 @@ public class QuestionsController : ControllerBase
         }
         
         // 권한 확인
-        if (!await _questionService.IsAuthorAsync(id, userId))
+        if (!await QuestionService.IsAuthorAsync(id, userId))
         {
             return StatusCode(StatusCodes.Status403Forbidden, ApiErrorResponse.Create(
                 "FORBIDDEN",
                 "본인의 질문만 삭제할 수 있습니다."));
         }
         
-        var result = await _questionService.DeleteAsync(id, userId);
+        var result = await QuestionService.DeleteAsync(id, userId);
         
         if (!result)
         {
@@ -192,19 +193,19 @@ public class QuestionsController : ControllerBase
     [HttpPost("{id:long}/vote")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<object>>> Vote(
+    public virtual async Task<ActionResult<ApiResponse<object>>> Vote(
         long id,
         [FromBody] VoteRequest request,
         [FromQuery] long userId)
     {
-        if (!await _questionService.ExistsAsync(id))
+        if (!await QuestionService.ExistsAsync(id))
         {
             return NotFound(ApiErrorResponse.Create(
                 "QUESTION_NOT_FOUND",
                 "질문을 찾을 수 없습니다."));
         }
         
-        var newVoteCount = await _questionService.VoteAsync(id, userId, request.VoteType);
+        var newVoteCount = await QuestionService.VoteAsync(id, userId, request.VoteType);
         
         return Ok(ApiResponse<object>.Ok(new { voteCount = newVoteCount }));
     }
@@ -217,16 +218,16 @@ public class QuestionsController : ControllerBase
     [HttpDelete("{id:long}/vote")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> CancelVote(long id, [FromQuery] long userId)
+    public virtual async Task<ActionResult> CancelVote(long id, [FromQuery] long userId)
     {
-        if (!await _questionService.ExistsAsync(id))
+        if (!await QuestionService.ExistsAsync(id))
         {
             return NotFound(ApiErrorResponse.Create(
                 "QUESTION_NOT_FOUND",
                 "질문을 찾을 수 없습니다."));
         }
         
-        await _questionService.RemoveVoteAsync(id, userId);
+        await QuestionService.RemoveVoteAsync(id, userId);
         
         return NoContent();
     }
@@ -240,23 +241,23 @@ public class QuestionsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<QuestionResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<QuestionResponse>>> Close(long id, [FromQuery] long userId)
+    public virtual async Task<ActionResult<ApiResponse<QuestionResponse>>> Close(long id, [FromQuery] long userId)
     {
-        if (!await _questionService.ExistsAsync(id))
+        if (!await QuestionService.ExistsAsync(id))
         {
             return NotFound(ApiErrorResponse.Create(
                 "QUESTION_NOT_FOUND",
                 "질문을 찾을 수 없습니다."));
         }
         
-        if (!await _questionService.IsAuthorAsync(id, userId))
+        if (!await QuestionService.IsAuthorAsync(id, userId))
         {
             return StatusCode(StatusCodes.Status403Forbidden, ApiErrorResponse.Create(
                 "FORBIDDEN",
                 "본인의 질문만 종료할 수 있습니다."));
         }
         
-        var closedQuestion = await _questionService.CloseAsync(id, userId);
+        var closedQuestion = await QuestionService.CloseAsync(id, userId);
         
         return Ok(ApiResponse<QuestionResponse>.Ok(closedQuestion));
     }
@@ -269,11 +270,11 @@ public class QuestionsController : ControllerBase
     [HttpGet("{id:long}/answers")]
     [ProducesResponseType(typeof(ApiResponse<IEnumerable<AnswerResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<IEnumerable<AnswerResponse>>>> GetAnswers(
+    public virtual async Task<ActionResult<ApiResponse<IEnumerable<AnswerResponse>>>> GetAnswers(
         long id,
         [FromQuery] long? currentUserId = null)
     {
-        var question = await _questionService.GetByIdAsync(id, currentUserId);
+        var question = await QuestionService.GetByIdAsync(id, currentUserId);
         
         if (question == null)
         {
